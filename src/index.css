@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.edu-aurora-canvas {
+  background-color: #060d1f;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.20) 0px, transparent 52%),
+    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.16) 0px, transparent 48%),
+    radial-gradient(at 85% 85%, rgba(14, 165, 233, 0.14) 0px, transparent 50%),
+    radial-gradient(at 15% 90%, rgba(245, 158, 11, 0.10) 0px, transparent 46%);
+  background-attachment: fixed;
+}
+
+.edu-login-canvas {
+  background-color: #060d1f;
+  background-image:
+    radial-gradient(at 12% 15%, rgba(99, 102, 241, 0.24) 0px, transparent 50%),
+    radial-gradient(at 88% 18%, rgba(16, 185, 129, 0.20) 0px, transparent 48%),
+    radial-gradient(at 50% 92%, rgba(245, 158, 11, 0.15) 0px, transparent 52%);
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body.printing-isolated-doc #root > * {
+    visibility: hidden !important;
+  }
+
+  body.printing-isolated-doc #printable-document-container,
+  body.printing-isolated-doc #printable-document-container * {
+    visibility: visible !important;
+  }
+
+  body.printing-isolated-doc #printable-document-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+  }
+}

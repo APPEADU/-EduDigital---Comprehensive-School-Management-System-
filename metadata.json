@@ -1,0 +1,8 @@
+{
+  "name": "EduDigital - Comprehensive School Management System",
+  "description": "All-in-one School Management System for Ghanaian basic schools, JHS, SHS, and private institutions. Features admissions, academics, GES \u0026 WASSCE grading, attendance, Mobile Money fee management, staff payroll, transport, boarding, parent portal, and AI analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

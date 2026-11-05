@@ -1,0 +1,1827 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // 1. GLOBAL DEFAULT-DENY SAFETY NET (MUST BE FIRST RULE BLOCK)
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 2. CORE HARDENED PRIMITIVES & IDENTITY HELPERS
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isStr(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isNumRange(val, minVal, maxVal) {
+      return val is number && val >= minVal && val <= maxVal;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() &&
+        'email_verified' in request.auth.token &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() &&
+        'email' in request.auth.token &&
+        request.auth.token.email is string &&
+        request.auth.token.email.size() <= 254 &&
+        request.auth.token.email == 'appeadusolomon65@gmail.com';
+    }
+
+    function isPlatformAdmin() {
+      return isBootstrappedAdmin() ||
+        (isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // =========================================================================
+    // 3. MASTER GATE INSTITUTIONAL RELATIONAL HELPERS (FOR SINGLE-DOC OPS ONLY)
+    // =========================================================================
+    function schoolExists(schoolId) {
+      return exists(/databases/$(database)/documents/schools/$(schoolId));
+    }
+
+    function schoolOwnerUidOf(schoolId) {
+      return get(/databases/$(database)/documents/schools/$(schoolId)).data.ownerUid;
+    }
+
+    function matchesSchoolOwnerUid(schoolId, ownerUid) {
+      return schoolExists(schoolId) && schoolOwnerUidOf(schoolId) == ownerUid;
+    }
+
+    function isSchoolOwner(schoolId) {
+      return matchesSchoolOwnerUid(schoolId, request.auth.uid);
+    }
+
+    function hasMemberRole(schoolId, allowedRoles) {
+      return schoolExists(schoolId) &&
+        exists(/databases/$(database)/documents/schools/$(schoolId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/schools/$(schoolId)/members/$(request.auth.uid)).data.role in allowedRoles;
+    }
+
+    function isSchoolStaffAdmin(schoolId) {
+      return isPlatformAdmin() ||
+        isSchoolOwner(schoolId) ||
+        hasMemberRole(schoolId, ['proprietor', 'admin']);
+    }
+
+    function isSchoolTeacherOrStaff(schoolId) {
+      return isSchoolStaffAdmin(schoolId) ||
+        hasMemberRole(schoolId, ['teacher', 'accountant', 'librarian', 'housemaster']);
+    }
+
+    function isSchoolMember(schoolId) {
+      return isSchoolTeacherOrStaff(schoolId) ||
+        hasMemberRole(schoolId, ['student', 'graduate', 'parent']);
+    }
+
+    // =========================================================================
+    // 4. STRICT SCHEMA VALIDATION BLUEPRINTS (ANTI-UPDATE-GAP + AUTH FIRST)
+    // =========================================================================
+
+    function isValidPlatformAdmin(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll(['uid', 'note', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'note', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        isStr(data.note, 1, 200) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserPublicProfile(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'uid', 'displayName', 'accountTier', 'title', 'avatar',
+          'activeSchoolId', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'displayName', 'accountTier', 'title', 'avatar',
+          'activeSchoolId', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        isStr(data.displayName, 1, 120) &&
+        isStr(data.accountTier, 1, 32) &&
+        data.accountTier in ['standard'] &&
+        isStr(data.title, 1, 120) &&
+        isStr(data.avatar, 1, 180000) &&
+        isValidId(data.activeSchoolId) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'uid', 'email', 'phone', 'linkedStudentId', 'linkedCandidateId',
+          'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'email', 'phone', 'linkedStudentId', 'linkedCandidateId',
+          'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        isStr(data.email, 3, 254) &&
+        isStr(data.phone, 0, 40) &&
+        isStr(data.linkedStudentId, 0, 128) &&
+        isStr(data.linkedCandidateId, 0, 128) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSchoolInstitution(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'name', 'code', 'motto', 'crest', 'levelType', 'region', 'district',
+          'address', 'officialPhone', 'officialEmail', 'currency', 'currentAcademicYear',
+          'currentTerm', 'termStartDate', 'termEndDate', 'nextTermBegins', 'headmasterName',
+          'headmasterSignature', 'enabledModules', 'ownerUid', 'updatedByUid', 'isPublic',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'name', 'code', 'motto', 'crest', 'levelType', 'region', 'district',
+          'address', 'officialPhone', 'whatsappNumber', 'whatsappEnabled', 'officialEmail',
+          'currency', 'currentAcademicYear', 'currentTerm', 'termStartDate', 'termEndDate',
+          'nextTermBegins', 'headmasterName', 'headmasterSignature', 'enabledModules',
+          'ownerUid', 'updatedByUid', 'isPublic', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isStr(data.name, 2, 200) &&
+        isStr(data.code, 2, 40) &&
+        isStr(data.motto, 1, 240) &&
+        isStr(data.crest, 1, 150000) &&
+        isStr(data.levelType, 1, 64) &&
+        data.levelType in [
+          'SHS', 'Basic & JHS', 'Combined', 'Professional Institute',
+          'Vocational Training Centre', 'College / Polytechnic', 'Executive Education'
+        ] &&
+        isStr(data.region, 1, 100) &&
+        isStr(data.district, 1, 120) &&
+        isStr(data.address, 1, 300) &&
+        isStr(data.officialPhone, 1, 50) &&
+        (!('whatsappNumber' in data) || isStr(data.whatsappNumber, 0, 50)) &&
+        (!('whatsappEnabled' in data) || data.whatsappEnabled is bool) &&
+        isStr(data.officialEmail, 3, 254) &&
+        isStr(data.currency, 1, 16) &&
+        isStr(data.currentAcademicYear, 4, 32) &&
+        isStr(data.currentTerm, 1, 32) &&
+        data.currentTerm in ['Term 1', 'Term 2', 'Term 3', 'Semester 1', 'Semester 2'] &&
+        isStr(data.termStartDate, 1, 32) &&
+        isStr(data.termEndDate, 1, 32) &&
+        isStr(data.nextTermBegins, 1, 32) &&
+        isStr(data.headmasterName, 1, 140) &&
+        isStr(data.headmasterSignature, 1, 140) &&
+        data.enabledModules is list &&
+        data.enabledModules.size() <= 25 &&
+        (data.enabledModules.size() == 0 || isStr(data.enabledModules[0], 1, 64)) &&
+        isValidId(data.ownerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSchoolMember(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'uid', 'schoolId', 'schoolOwnerUid', 'name', 'role',
+          'title', 'avatar', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'schoolId', 'schoolOwnerUid', 'name', 'role',
+          'title', 'avatar', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isStr(data.name, 1, 140) &&
+        isStr(data.role, 1, 32) &&
+        data.role in [
+          'proprietor', 'admin', 'teacher', 'accountant',
+          'parent', 'student', 'graduate', 'librarian', 'housemaster'
+        ] &&
+        isStr(data.title, 1, 140) &&
+        isStr(data.avatar, 1, 180000) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSignatory(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'authorUid', 'updatedByUid',
+          'name', 'title', 'role', 'signatureDataUrl', 'signatureMethod',
+          'active', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'authorUid', 'updatedByUid',
+          'name', 'title', 'role', 'signatureDataUrl', 'signatureMethod',
+          'active', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.authorUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.name, 1, 140) &&
+        isStr(data.title, 1, 160) &&
+        isStr(data.role, 1, 64) &&
+        data.role in [
+          'Registrar', 'Head of Institution', 'Academic Dean',
+          'Chief Examiner', 'Lead Lecturer / Teacher', 'Council Chair'
+        ] &&
+        isStr(data.signatureDataUrl, 10, 180000) &&
+        isStr(data.signatureMethod, 1, 16) &&
+        data.signatureMethod in ['drawn', 'uploaded'] &&
+        data.active is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidProgramme(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'code', 'title',
+          'category', 'qualificationAwarded', 'professionalDesignation',
+          'affiliatedProfessionalBody', 'awardingAuthorityModel', 'durationLabel',
+          'totalCreditHours', 'entryRequirements', 'assessmentMethods',
+          'examinationRegulations', 'progressionRules', 'completionRequirements',
+          'feeClearanceRequired', 'levels', 'status', 'isPublished',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'code', 'title',
+          'category', 'qualificationAwarded', 'professionalDesignation',
+          'affiliatedProfessionalBody', 'awardingAuthorityModel', 'durationLabel',
+          'totalCreditHours', 'entryRequirements', 'assessmentMethods',
+          'examinationRegulations', 'progressionRules', 'completionRequirements',
+          'feeClearanceRequired', 'levels', 'status', 'isPublished',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.code, 1, 40) &&
+        isStr(data.title, 2, 220) &&
+        isStr(data.category, 1, 64) &&
+        data.category in [
+          'Professional Qualification', 'Diploma Programme', 'Certificate Programme',
+          'Executive Education', 'Vocational & Technical', 'Short Course', 'Secondary / Basic Completion'
+        ] &&
+        isStr(data.qualificationAwarded, 2, 240) &&
+        isStr(data.professionalDesignation, 0, 200) &&
+        isStr(data.affiliatedProfessionalBody, 0, 220) &&
+        isStr(data.awardingAuthorityModel, 1, 80) &&
+        data.awardingAuthorityModel in [
+          'Institution Direct Award',
+          'Affiliated Awarding Body',
+          'Dual: Institution Award + Professional Body Designation'
+        ] &&
+        isStr(data.durationLabel, 1, 80) &&
+        isNumRange(data.totalCreditHours, 0, 2000) &&
+        isStr(data.entryRequirements, 1, 1000) &&
+        isStr(data.assessmentMethods, 1, 1000) &&
+        isStr(data.examinationRegulations, 1, 1000) &&
+        isStr(data.progressionRules, 1, 1000) &&
+        isStr(data.completionRequirements, 1, 1000) &&
+        data.feeClearanceRequired is bool &&
+        data.levels is list &&
+        data.levels.size() >= 1 &&
+        data.levels.size() <= 6 &&
+        data.levels[0] is map &&
+        isStr(data.status, 1, 24) &&
+        data.status in ['Active', 'Review', 'Archived'] &&
+        data.isPublished is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCourse(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'programmeId', 'updatedByUid',
+          'levelNumber', 'code', 'title', 'creditHours', 'lecturerName',
+          'caWeightPercent', 'practicalWeightPercent', 'examWeightPercent',
+          'isMandatory', 'examScheduleDate', 'semesterOrDiet',
+          'levelLabel', 'courseDetails', 'rationale', 'objectives', 'flyerDataUrl',
+          'isPublished', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'programmeId', 'updatedByUid',
+          'levelNumber', 'code', 'title', 'creditHours', 'lecturerName',
+          'caWeightPercent', 'practicalWeightPercent', 'examWeightPercent',
+          'isMandatory', 'examScheduleDate', 'semesterOrDiet',
+          'levelLabel', 'courseDetails', 'rationale', 'objectives', 'flyerDataUrl',
+          'isPublished', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.programmeId) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isNumRange(data.levelNumber, 1, 6) &&
+        isStr(data.code, 1, 32) &&
+        isStr(data.title, 2, 200) &&
+        isNumRange(data.creditHours, 0, 100) &&
+        isStr(data.lecturerName, 1, 140) &&
+        isNumRange(data.caWeightPercent, 0, 100) &&
+        isNumRange(data.practicalWeightPercent, 0, 100) &&
+        isNumRange(data.examWeightPercent, 0, 100) &&
+        data.isMandatory is bool &&
+        isStr(data.examScheduleDate, 0, 40) &&
+        isStr(data.semesterOrDiet, 1, 80) &&
+        isStr(data.levelLabel, 1, 64) &&
+        isStr(data.courseDetails, 0, 4000) &&
+        isStr(data.rationale, 0, 3000) &&
+        data.objectives is list &&
+        data.objectives.size() <= 20 &&
+        (data.objectives.size() == 0 || isStr(data.objectives[0], 1, 400)) &&
+        isStr(data.flyerDataUrl, 0, 250000) &&
+        data.isPublished is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudent(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'studentNumber',
+          'firstName', 'lastName', 'otherNames', 'gender', 'dob', 'photo',
+          'classId', 'stream', 'boardingStatus', 'studentEmail', 'guardianName',
+          'guardianPhone', 'guardianEmail', 'guardianRelationship',
+          'emergencyContact', 'medicalInfo', 'admissionDate', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'studentNumber',
+          'firstName', 'lastName', 'otherNames', 'gender', 'dob', 'photo',
+          'classId', 'stream', 'boardingStatus', 'studentEmail', 'guardianName',
+          'guardianPhone', 'guardianEmail', 'guardianRelationship',
+          'emergencyContact', 'medicalInfo', 'admissionDate', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.studentNumber, 2, 64) &&
+        isStr(data.firstName, 1, 80) &&
+        isStr(data.lastName, 1, 80) &&
+        isStr(data.otherNames, 0, 80) &&
+        isStr(data.gender, 1, 16) &&
+        data.gender in ['Male', 'Female'] &&
+        isStr(data.dob, 1, 32) &&
+        isStr(data.photo, 1, 180000) &&
+        isStr(data.classId, 1, 128) &&
+        isStr(data.stream, 1, 80) &&
+        isStr(data.boardingStatus, 1, 20) &&
+        data.boardingStatus in ['Boarding', 'Day'] &&
+        isStr(data.studentEmail, 3, 254) &&
+        isStr(data.guardianName, 1, 140) &&
+        isStr(data.guardianPhone, 0, 40) &&
+        isStr(data.guardianEmail, 0, 254) &&
+        isStr(data.guardianRelationship, 0, 60) &&
+        isStr(data.emergencyContact, 0, 80) &&
+        isStr(data.medicalInfo, 0, 500) &&
+        isStr(data.admissionDate, 1, 32) &&
+        isStr(data.status, 1, 24) &&
+        data.status in ['Active', 'Withdrawn', 'Graduated', 'Suspended'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCandidate(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateNumber',
+          'firstName', 'lastName', 'otherNames', 'gender', 'dob', 'email', 'phone',
+          'photo', 'nationalIdNumber', 'identityVerified', 'identityDocumentType',
+          'previousQualifications', 'programmeId', 'currentLevel', 'completedLevels',
+          'enrollmentDate', 'status', 'membershipStatus', 'totalFeesBilled',
+          'totalFeesPaid', 'directoryConsent', 'headlineOrRole', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateNumber',
+          'firstName', 'lastName', 'otherNames', 'gender', 'dob', 'email', 'phone',
+          'photo', 'nationalIdNumber', 'identityVerified', 'identityDocumentType',
+          'previousQualifications', 'programmeId', 'currentLevel', 'completedLevels',
+          'enrollmentDate', 'status', 'membershipStatus', 'totalFeesBilled',
+          'totalFeesPaid', 'directoryConsent', 'headlineOrRole', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.candidateNumber, 2, 64) &&
+        isStr(data.firstName, 1, 80) &&
+        isStr(data.lastName, 1, 80) &&
+        isStr(data.otherNames, 0, 80) &&
+        isStr(data.gender, 1, 16) &&
+        data.gender in ['Male', 'Female'] &&
+        isStr(data.dob, 1, 32) &&
+        isStr(data.email, 3, 254) &&
+        isStr(data.phone, 0, 40) &&
+        isStr(data.photo, 1, 180000) &&
+        isStr(data.nationalIdNumber, 1, 64) &&
+        data.identityVerified is bool &&
+        isStr(data.identityDocumentType, 1, 64) &&
+        data.identityDocumentType in ['Ghana Card (NIA)', 'Passport', 'Birth Certificate / GES Index'] &&
+        isStr(data.previousQualifications, 0, 500) &&
+        isValidId(data.programmeId) &&
+        isNumRange(data.currentLevel, 1, 6) &&
+        data.completedLevels is list &&
+        data.completedLevels.size() <= 6 &&
+        (data.completedLevels.size() == 0 || data.completedLevels[0] is number) &&
+        isStr(data.enrollmentDate, 1, 32) &&
+        isStr(data.status, 1, 32) &&
+        data.status in ['Active', 'Completed / Graduated', 'Deferred', 'Suspended'] &&
+        isStr(data.membershipStatus, 1, 80) &&
+        data.membershipStatus in [
+          'Registered Student Candidate',
+          'Affiliate / Technician Member',
+          'Graduate Member (Institution Complete)',
+          'Associate Member (Awarded by External Professional Body)',
+          'Fellow (Awarded by External Professional Body)',
+          'Not Applicable (Academic / Vocational Only)'
+        ] &&
+        isNumRange(data.totalFeesBilled, 0, 10000000) &&
+        isNumRange(data.totalFeesPaid, 0, 10000000) &&
+        data.directoryConsent is bool &&
+        isStr(data.headlineOrRole, 0, 160) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAssessment(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateId',
+          'candidateEmail', 'programmeId', 'courseId', 'levelNumber', 'examDiet',
+          'attendancePercent', 'caScore', 'practicalScore', 'examScore',
+          'totalScore', 'grade', 'paperStatus', 'exemptionBasis', 'moderated',
+          'resitAttemptCount', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateId',
+          'candidateEmail', 'programmeId', 'courseId', 'levelNumber', 'examDiet',
+          'attendancePercent', 'caScore', 'practicalScore', 'examScore',
+          'totalScore', 'grade', 'paperStatus', 'exemptionBasis', 'moderated',
+          'resitAttemptCount', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isValidId(data.candidateId) &&
+        isStr(data.candidateEmail, 3, 254) &&
+        isValidId(data.programmeId) &&
+        isValidId(data.courseId) &&
+        isNumRange(data.levelNumber, 1, 6) &&
+        isStr(data.examDiet, 1, 80) &&
+        isNumRange(data.attendancePercent, 0, 100) &&
+        isNumRange(data.caScore, 0, 100) &&
+        isNumRange(data.practicalScore, 0, 100) &&
+        isNumRange(data.examScore, 0, 100) &&
+        isNumRange(data.totalScore, 0, 100) &&
+        isStr(data.grade, 1, 16) &&
+        isStr(data.paperStatus, 1, 32) &&
+        data.paperStatus in [
+          'Registered', 'Passed', 'Resit Required', 'Exempted',
+          'Deferred', 'Under Moderation', 'Appeal Lodged'
+        ] &&
+        isStr(data.exemptionBasis, 0, 240) &&
+        data.moderated is bool &&
+        isNumRange(data.resitAttemptCount, 0, 20) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidExamResult(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'studentId',
+          'studentEmail', 'classId', 'subjectId', 'term', 'academicYear',
+          'classScore', 'examScore', 'totalScore', 'grade', 'remarks',
+          'verified', 'published', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'studentId',
+          'studentEmail', 'classId', 'subjectId', 'term', 'academicYear',
+          'classScore', 'examScore', 'totalScore', 'grade', 'remarks',
+          'verified', 'published', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isValidId(data.studentId) &&
+        isStr(data.studentEmail, 3, 254) &&
+        isStr(data.classId, 1, 128) &&
+        isStr(data.subjectId, 1, 128) &&
+        isStr(data.term, 1, 32) &&
+        isStr(data.academicYear, 4, 32) &&
+        isNumRange(data.classScore, 0, 100) &&
+        isNumRange(data.examScore, 0, 100) &&
+        isNumRange(data.totalScore, 0, 100) &&
+        isStr(data.grade, 1, 8) &&
+        isStr(data.remarks, 1, 80) &&
+        data.verified is bool &&
+        data.published is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeePayment(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'receiptNumber',
+          'studentId', 'studentEmail', 'amountPaid', 'paymentMethod',
+          'transactionRef', 'payerName', 'payerPhone', 'date', 'term',
+          'academicYear', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'receiptNumber',
+          'studentId', 'studentEmail', 'amountPaid', 'paymentMethod',
+          'transactionRef', 'payerName', 'payerPhone', 'date', 'term',
+          'academicYear', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.receiptNumber, 2, 64) &&
+        isValidId(data.studentId) &&
+        isStr(data.studentEmail, 3, 254) &&
+        isNumRange(data.amountPaid, 0, 10000000) &&
+        isStr(data.paymentMethod, 1, 40) &&
+        data.paymentMethod in ['MTN Mobile Money', 'Telecel Cash', 'AT Money', 'Bank Transfer', 'Cash'] &&
+        isStr(data.transactionRef, 1, 100) &&
+        isStr(data.payerName, 1, 140) &&
+        isStr(data.payerPhone, 0, 40) &&
+        isStr(data.date, 1, 32) &&
+        isStr(data.term, 1, 32) &&
+        isStr(data.academicYear, 4, 32) &&
+        isStr(data.status, 1, 24) &&
+        data.status in ['Completed', 'Pending', 'Failed'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidIssuedCredential(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'publicLookupKey', 'schoolId', 'schoolOwnerUid', 'updatedByUid',
+          'schoolName', 'schoolCode', 'schoolCrest', 'certificateNumber',
+          'verificationCode', 'candidateId', 'candidateEmail', 'candidateNumber',
+          'recipientFullName', 'programmeId', 'programmeTitle', 'credentialType',
+          'qualificationAwarded', 'levelCompletedLabel', 'honoursOrDistinction',
+          'creditHoursCompleted', 'issueDate', 'expiryDate', 'status',
+          'replacedByCertificateNumber', 'revocationOrStatusReason',
+          'awardingAuthorityName', 'professionalBodyAffiliationNote', 'templateId',
+          'signatoriesSnapshot', 'auditTrail', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'publicLookupKey', 'schoolId', 'schoolOwnerUid', 'updatedByUid',
+          'schoolName', 'schoolCode', 'schoolCrest', 'certificateNumber',
+          'verificationCode', 'candidateId', 'candidateEmail', 'candidateNumber',
+          'recipientFullName', 'programmeId', 'programmeTitle', 'credentialType',
+          'qualificationAwarded', 'levelCompletedLabel', 'honoursOrDistinction',
+          'creditHoursCompleted', 'issueDate', 'expiryDate', 'status',
+          'replacedByCertificateNumber', 'revocationOrStatusReason',
+          'awardingAuthorityName', 'professionalBodyAffiliationNote', 'templateId',
+          'signatoriesSnapshot', 'auditTrail', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.publicLookupKey) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.schoolName, 2, 200) &&
+        isStr(data.schoolCode, 2, 40) &&
+        isStr(data.schoolCrest, 1, 150000) &&
+        isStr(data.certificateNumber, 3, 80) &&
+        isStr(data.verificationCode, 3, 64) &&
+        isValidId(data.candidateId) &&
+        isStr(data.candidateEmail, 3, 254) &&
+        isStr(data.candidateNumber, 2, 64) &&
+        isStr(data.recipientFullName, 2, 180) &&
+        isStr(data.programmeId, 1, 128) &&
+        isStr(data.programmeTitle, 2, 220) &&
+        isStr(data.credentialType, 2, 80) &&
+        data.credentialType in [
+          'Full Qualification Certificate', 'Level Completion Certificate',
+          'Diploma Certificate', 'Executive Programme Certificate',
+          'Short Course Certificate', 'Professional Examination Pass Certificate',
+          'Official Academic Transcript', 'Statement of Results',
+          'Letter of Completion', 'Digital Credential Badge'
+        ] &&
+        isStr(data.qualificationAwarded, 2, 240) &&
+        isStr(data.levelCompletedLabel, 1, 160) &&
+        isStr(data.honoursOrDistinction, 0, 80) &&
+        isNumRange(data.creditHoursCompleted, 0, 2000) &&
+        isStr(data.issueDate, 1, 32) &&
+        isStr(data.expiryDate, 0, 32) &&
+        isStr(data.status, 1, 32) &&
+        data.status in ['Valid', 'Pending Approval', 'Revoked', 'Replaced', 'Expired'] &&
+        isStr(data.replacedByCertificateNumber, 0, 80) &&
+        isStr(data.revocationOrStatusReason, 0, 400) &&
+        isStr(data.awardingAuthorityName, 2, 220) &&
+        isStr(data.professionalBodyAffiliationNote, 0, 400) &&
+        isStr(data.templateId, 1, 128) &&
+        data.signatoriesSnapshot is list &&
+        data.signatoriesSnapshot.size() >= 1 &&
+        data.signatoriesSnapshot.size() <= 3 &&
+        data.signatoriesSnapshot[0] is map &&
+        data.auditTrail is list &&
+        data.auditTrail.size() >= 1 &&
+        data.auditTrail.size() <= 25 &&
+        data.auditTrail[0] is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPublicCredential(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'certificateKey', 'credentialId', 'schoolId', 'updatedByUid',
+          'certificateNumber', 'verificationCode', 'recipientFullName',
+          'candidateNumber', 'issuingInstitutionName', 'issuingInstitutionCode',
+          'issuingInstitutionCrest', 'awardingAuthorityName',
+          'professionalBodyAffiliationNote', 'credentialType', 'programmeTitle',
+          'qualificationAwarded', 'levelCompletedLabel', 'honoursOrDistinction',
+          'issueDate', 'expiryDate', 'status', 'replacedByCertificateNumber',
+          'revocationOrStatusReason', 'isPublic', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'certificateKey', 'credentialId', 'schoolId', 'updatedByUid',
+          'certificateNumber', 'verificationCode', 'recipientFullName',
+          'candidateNumber', 'issuingInstitutionName', 'issuingInstitutionCode',
+          'issuingInstitutionCrest', 'awardingAuthorityName',
+          'professionalBodyAffiliationNote', 'credentialType', 'programmeTitle',
+          'qualificationAwarded', 'levelCompletedLabel', 'honoursOrDistinction',
+          'issueDate', 'expiryDate', 'status', 'replacedByCertificateNumber',
+          'revocationOrStatusReason', 'isPublic', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.certificateKey) &&
+        isValidId(data.credentialId) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.certificateNumber, 3, 80) &&
+        isStr(data.verificationCode, 3, 64) &&
+        isStr(data.recipientFullName, 2, 180) &&
+        isStr(data.candidateNumber, 2, 64) &&
+        isStr(data.issuingInstitutionName, 2, 200) &&
+        isStr(data.issuingInstitutionCode, 2, 40) &&
+        isStr(data.issuingInstitutionCrest, 1, 150000) &&
+        isStr(data.awardingAuthorityName, 2, 220) &&
+        isStr(data.professionalBodyAffiliationNote, 0, 400) &&
+        isStr(data.credentialType, 2, 80) &&
+        isStr(data.programmeTitle, 2, 220) &&
+        isStr(data.qualificationAwarded, 2, 240) &&
+        isStr(data.levelCompletedLabel, 1, 160) &&
+        isStr(data.honoursOrDistinction, 0, 80) &&
+        isStr(data.issueDate, 1, 32) &&
+        isStr(data.expiryDate, 0, 32) &&
+        isStr(data.status, 1, 32) &&
+        data.status in ['Valid', 'Pending Approval', 'Revoked', 'Replaced', 'Expired'] &&
+        isStr(data.replacedByCertificateNumber, 0, 80) &&
+        isStr(data.revocationOrStatusReason, 0, 400) &&
+        data.isPublic is bool &&
+        data.isPublic == true &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGraduateRecord(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateId',
+          'candidateNumber', 'fullName', 'email', 'phone', 'photo',
+          'programmeId', 'programmeTitle', 'qualificationAwarded',
+          'levelAttained', 'graduationYear', 'completionApprovedDate',
+          'certificateNumber', 'verificationCode', 'certificateStatus',
+          'membershipStatus', 'directoryConsent', 'currentEmployerOrRole',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'updatedByUid', 'candidateId',
+          'candidateNumber', 'fullName', 'email', 'phone', 'photo',
+          'programmeId', 'programmeTitle', 'qualificationAwarded',
+          'levelAttained', 'graduationYear', 'completionApprovedDate',
+          'certificateNumber', 'verificationCode', 'certificateStatus',
+          'membershipStatus', 'directoryConsent', 'currentEmployerOrRole',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.candidateId, 1, 128) &&
+        isStr(data.candidateNumber, 2, 64) &&
+        isStr(data.fullName, 2, 180) &&
+        isStr(data.email, 3, 254) &&
+        isStr(data.phone, 0, 40) &&
+        isStr(data.photo, 1, 180000) &&
+        isStr(data.programmeId, 1, 128) &&
+        isStr(data.programmeTitle, 2, 220) &&
+        isStr(data.qualificationAwarded, 2, 240) &&
+        isStr(data.levelAttained, 1, 160) &&
+        isNumRange(data.graduationYear, 1950, 2100) &&
+        isStr(data.completionApprovedDate, 1, 32) &&
+        isStr(data.certificateNumber, 3, 80) &&
+        isStr(data.verificationCode, 3, 64) &&
+        isStr(data.certificateStatus, 1, 32) &&
+        data.certificateStatus in ['Valid', 'Pending Approval', 'Revoked', 'Replaced', 'Expired'] &&
+        isStr(data.membershipStatus, 1, 80) &&
+        data.directoryConsent is bool &&
+        isStr(data.currentEmployerOrRole, 0, 160) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPublicGraduate(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'updatedByUid', 'institutionName', 'institutionCode',
+          'candidateNumber', 'fullName', 'photo', 'programmeTitle',
+          'qualificationAwarded', 'levelAttained', 'graduationYear',
+          'certificateNumber', 'verificationCode', 'certificateStatus',
+          'membershipStatus', 'currentEmployerOrRole', 'directoryConsent',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'updatedByUid', 'institutionName', 'institutionCode',
+          'candidateNumber', 'fullName', 'photo', 'programmeTitle',
+          'qualificationAwarded', 'levelAttained', 'graduationYear',
+          'certificateNumber', 'verificationCode', 'certificateStatus',
+          'membershipStatus', 'currentEmployerOrRole', 'directoryConsent',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.institutionName, 2, 200) &&
+        isStr(data.institutionCode, 2, 40) &&
+        isStr(data.candidateNumber, 2, 64) &&
+        isStr(data.fullName, 2, 180) &&
+        isStr(data.photo, 1, 180000) &&
+        isStr(data.programmeTitle, 2, 220) &&
+        isStr(data.qualificationAwarded, 2, 240) &&
+        isStr(data.levelAttained, 1, 160) &&
+        isNumRange(data.graduationYear, 1950, 2100) &&
+        isStr(data.certificateNumber, 3, 80) &&
+        isStr(data.verificationCode, 3, 64) &&
+        isStr(data.certificateStatus, 1, 32) &&
+        data.certificateStatus in ['Valid'] &&
+        isStr(data.membershipStatus, 1, 80) &&
+        isStr(data.currentEmployerOrRole, 0, 160) &&
+        data.directoryConsent is bool &&
+        data.directoryConsent == true &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidReplacementRequest(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'requesterUid', 'updatedByUid',
+          'candidateId', 'originalCertificateId', 'originalCertificateNumber',
+          'requesterName', 'reason', 'details', 'requestedDate', 'status',
+          'newCertificateNumber', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'requesterUid', 'updatedByUid',
+          'candidateId', 'originalCertificateId', 'originalCertificateNumber',
+          'requesterName', 'reason', 'details', 'requestedDate', 'status',
+          'newCertificateNumber', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.requesterUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.candidateId, 1, 128) &&
+        isStr(data.originalCertificateId, 1, 128) &&
+        isStr(data.originalCertificateNumber, 3, 80) &&
+        isStr(data.requesterName, 2, 180) &&
+        isStr(data.reason, 1, 64) &&
+        data.reason in [
+          'Damaged Physical Copy', 'Legal Name Correction',
+          'Lost Credential Re-issue', 'Signatory / Administrative Update'
+        ] &&
+        isStr(data.details, 1, 600) &&
+        isStr(data.requestedDate, 1, 32) &&
+        isStr(data.status, 1, 32) &&
+        data.status in ['Pending Review', 'Approved & Re-issued', 'Declined'] &&
+        isStr(data.newCertificateNumber, 0, 80) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVerificationLog(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'verifierUid', 'timestamp',
+          'queriedReference', 'matchedCertificateNumber', 'recipientName',
+          'verifierOrganization', 'verifierContactName', 'verificationPurpose',
+          'lookupMode', 'resultStatus', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'verifierUid', 'timestamp',
+          'queriedReference', 'matchedCertificateNumber', 'recipientName',
+          'verifierOrganization', 'verifierContactName', 'verificationPurpose',
+          'lookupMode', 'resultStatus', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.verifierUid) &&
+        data.verifierUid == request.auth.uid &&
+        isStr(data.timestamp, 1, 40) &&
+        isStr(data.queriedReference, 1, 100) &&
+        isStr(data.matchedCertificateNumber, 0, 80) &&
+        isStr(data.recipientName, 0, 180) &&
+        isStr(data.verifierOrganization, 1, 180) &&
+        isStr(data.verifierContactName, 1, 140) &&
+        isStr(data.verificationPurpose, 1, 200) &&
+        isStr(data.lookupMode, 1, 48) &&
+        data.lookupMode in ['Single Lookup / QR Scan', 'Employer Batch Verification'] &&
+        isStr(data.resultStatus, 1, 32) &&
+        data.resultStatus in ['Valid', 'Pending Approval', 'Revoked', 'Replaced', 'Expired', 'Not Found'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidResearchArticle(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'schoolId', 'schoolOwnerUid', 'authorUid', 'updatedByUid',
+          'title', 'subtitle', 'abstract', 'authors', 'category', 'keywords',
+          'publicationDate', 'volume', 'doi', 'status', 'viewsCount',
+          'downloadsCount', 'citationsCount', 'license', 'sections',
+          'references', 'isOpenToPublic', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'schoolId', 'schoolOwnerUid', 'authorUid', 'updatedByUid',
+          'title', 'subtitle', 'abstract', 'authors', 'category', 'keywords',
+          'publicationDate', 'volume', 'doi', 'status', 'viewsCount',
+          'downloadsCount', 'citationsCount', 'license', 'sections',
+          'references', 'isOpenToPublic', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.schoolId) &&
+        isValidId(data.schoolOwnerUid) &&
+        isValidId(data.authorUid) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        isStr(data.title, 3, 300) &&
+        isStr(data.subtitle, 0, 300) &&
+        isStr(data.abstract, 10, 4000) &&
+        data.authors is list &&
+        data.authors.size() >= 1 &&
+        data.authors.size() <= 10 &&
+        data.authors[0] is map &&
+        isStr(data.category, 1, 64) &&
+        data.category in [
+          'STEM & Applied Science', 'Education & Pedagogy',
+          'African History & Heritage', 'Environmental & Climate Studies',
+          'Economics & Commerce', 'ICT, AI & Robotics', 'Literature & Cultural Studies'
+        ] &&
+        data.keywords is list &&
+        data.keywords.size() >= 1 &&
+        data.keywords.size() <= 12 &&
+        isStr(data.keywords[0], 1, 60) &&
+        isStr(data.publicationDate, 1, 32) &&
+        isStr(data.volume, 1, 80) &&
+        isStr(data.doi, 3, 120) &&
+        isStr(data.status, 1, 48) &&
+        data.status in [
+          'Published Open Access', 'Peer Reviewed',
+          'Faculty Working Paper', 'Student Capstone', 'Under Review'
+        ] &&
+        isNumRange(data.viewsCount, 0, 100000000) &&
+        isNumRange(data.downloadsCount, 0, 100000000) &&
+        isNumRange(data.citationsCount, 0, 100000000) &&
+        isStr(data.license, 2, 120) &&
+        data.sections is list &&
+        data.sections.size() >= 1 &&
+        data.sections.size() <= 15 &&
+        data.sections[0] is map &&
+        data.references is list &&
+        data.references.size() <= 30 &&
+        (data.references.size() == 0 || isStr(data.references[0], 1, 500)) &&
+        data.isOpenToPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlatformOwnerProfile(data) {
+      return isVerifiedUser() &&
+        data.keys().hasAll([
+          'id', 'name', 'roleTitle', 'subtitle', 'bio', 'photoUrl',
+          'whatsappNumber', 'isPublic', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'name', 'roleTitle', 'subtitle', 'bio', 'photoUrl',
+          'whatsappNumber', 'isPublic', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isStr(data.name, 2, 140) &&
+        isStr(data.roleTitle, 2, 140) &&
+        isStr(data.subtitle, 2, 260) &&
+        isStr(data.bio, 10, 1500) &&
+        isStr(data.photoUrl, 1, 180000) &&
+        isStr(data.whatsappNumber, 3, 50) &&
+        data.isPublic is bool &&
+        data.isPublic == true &&
+        isValidId(data.updatedByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // 5. COLLECTION MATCH BLOCKS (EXHAUSTIVE COVERAGE OF BLUEPRINT)
+    // =========================================================================
+
+    // Connectivity probe for getDocFromServer(doc(db, 'test', 'connection'))
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+      allow list, create, update, delete: if false;
+    }
+
+    // Publicly readable Platform Owner & Developer website profile singleton
+    match /platformSettings/{settingId} {
+      allow get: if settingId == 'ownerProfile';
+      allow list: if isPlatformAdmin();
+      allow create: if isPlatformAdmin() &&
+        settingId == 'ownerProfile' &&
+        isValidPlatformOwnerProfile(incoming()) &&
+        incoming().id == 'ownerProfile' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isPlatformAdmin() &&
+        settingId == 'ownerProfile' &&
+        isValidPlatformOwnerProfile(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'id', 'name', 'roleTitle', 'subtitle', 'bio', 'photoUrl',
+          'whatsappNumber', 'isPublic', 'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isPlatformAdmin() && settingId == 'ownerProfile';
+    }
+
+    // Trusted platform super-administrators
+    match /admins/{adminUid} {
+      allow get: if isVerifiedUser() && isValidId(adminUid) && (request.auth.uid == adminUid || isBootstrappedAdmin());
+      allow list: if false;
+      allow create: if isValidPlatformAdmin(incoming()) &&
+        isValidId(adminUid) &&
+        incoming().uid == adminUid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isBootstrappedAdmin();
+      allow update: if isValidPlatformAdmin(incoming()) &&
+        isValidId(adminUid) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isBootstrappedAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['note', 'updatedByUid', 'updatedAt']);
+      allow delete: if isBootstrappedAdmin() && isValidId(adminUid);
+    }
+
+    // Split User Profile (Public Non-PII Half)
+    match /users/{userId}/public/{docId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && docId == 'profile' && (request.auth.uid == userId || isPlatformAdmin());
+      allow list: if false;
+      allow create: if isValidUserPublicProfile(incoming()) &&
+        isValidId(userId) &&
+        docId == 'profile' &&
+        request.auth.uid == userId &&
+        incoming().uid == userId &&
+        incoming().accountTier == 'standard' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidUserPublicProfile(incoming()) &&
+        isValidId(userId) &&
+        docId == 'profile' &&
+        incoming().uid == existing().uid &&
+        incoming().accountTier == existing().accountTier &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isPlatformAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'title', 'avatar', 'activeSchoolId', 'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isPlatformAdmin() && isValidId(userId) && docId == 'profile';
+    }
+
+    // Split User Profile (Strictly Isolated PII Half)
+    match /users/{userId}/private/{docId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && docId == 'info' && (request.auth.uid == userId || isPlatformAdmin());
+      allow list: if false;
+      allow create: if isValidUserPrivateInfo(incoming()) &&
+        isValidId(userId) &&
+        docId == 'info' &&
+        request.auth.uid == userId &&
+        incoming().uid == userId &&
+        incoming().email == request.auth.token.email &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidUserPrivateInfo(incoming()) &&
+        isValidId(userId) &&
+        docId == 'info' &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isPlatformAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'phone', 'linkedStudentId', 'linkedCandidateId', 'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isPlatformAdmin() && isValidId(userId) && docId == 'info';
+    }
+
+    // Master Gate Root Institution Documents
+    match /schools/{schoolId} {
+      allow get: if isValidId(schoolId) && (
+        resource == null ||
+        existing().isPublic == true ||
+        (isVerifiedUser() && (existing().ownerUid == request.auth.uid || isSchoolMember(schoolId)))
+      );
+      allow list: if resource.data.isPublic == true || isBootstrappedAdmin();
+      allow create: if isPlatformAdmin() &&
+        isValidSchoolInstitution(incoming()) &&
+        isValidId(schoolId) &&
+        incoming().id == schoolId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidSchoolInstitution(incoming()) &&
+        isValidId(schoolId) &&
+        incoming().id == existing().id &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isPlatformAdmin() ||
+          (
+            isSchoolStaffAdmin(schoolId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'code', 'motto', 'crest', 'levelType', 'region', 'district',
+              'address', 'officialPhone', 'whatsappNumber', 'whatsappEnabled', 'officialEmail',
+              'currency', 'currentAcademicYear', 'currentTerm', 'termStartDate', 'termEndDate',
+              'nextTermBegins', 'headmasterName', 'headmasterSignature',
+              'enabledModules', 'isPublic', 'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isPlatformAdmin() && isValidId(schoolId);
+
+      // Institutional RBAC Membership Subcollection
+      match /members/{memberUid} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(memberUid) && (
+          request.auth.uid == memberUid || isSchoolStaffAdmin(schoolId)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().uid == request.auth.uid ||
+          existing().schoolOwnerUid == request.auth.uid
+        );
+        allow create: if isValidSchoolMember(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(memberUid) &&
+          incoming().uid == memberUid &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid) &&
+          (
+            isSchoolStaffAdmin(schoolId) ||
+            (
+              request.auth.uid == memberUid &&
+              incoming().role == 'student'
+            )
+          );
+        allow update: if isValidSchoolMember(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(memberUid) &&
+          incoming().uid == existing().uid &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'role', 'title', 'avatar', 'updatedByUid', 'updatedAt'
+              ])
+            ) ||
+            (
+              request.auth.uid == memberUid &&
+              incoming().role == existing().role &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'title', 'avatar', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(memberUid) && (isPlatformAdmin() || isSchoolStaffAdmin(schoolId));
+      }
+
+      // Digital Signatories (Teachers, Registrars, Heads of Institution)
+      match /signatories/{signatoryId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(signatoryId) && isSchoolMember(schoolId);
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().authorUid == request.auth.uid
+        );
+        allow create: if isValidSignatory(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(signatoryId) &&
+          incoming().id == signatoryId &&
+          incoming().schoolId == schoolId &&
+          incoming().authorUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolTeacherOrStaff(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidSignatory(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(signatoryId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().authorUid == existing().authorUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolTeacherOrStaff(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'title', 'role', 'signatureDataUrl', 'signatureMethod',
+                'active', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(signatoryId) && (isPlatformAdmin() || isSchoolStaffAdmin(schoolId));
+      }
+
+      // Multi-Level Certification & Diploma Programmes
+      match /programmes/{programmeId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(programmeId) && isSchoolMember(schoolId);
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().isPublished == true
+        );
+        allow create: if isValidProgramme(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(programmeId) &&
+          incoming().id == programmeId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolStaffAdmin(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidProgramme(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(programmeId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'code', 'title', 'category', 'qualificationAwarded',
+                'professionalDesignation', 'affiliatedProfessionalBody',
+                'awardingAuthorityModel', 'durationLabel', 'totalCreditHours',
+                'entryRequirements', 'assessmentMethods', 'examinationRegulations',
+                'progressionRules', 'completionRequirements', 'feeClearanceRequired',
+                'levels', 'status', 'isPublished', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(programmeId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // Programme Courses
+      match /courses/{courseId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(courseId) && isSchoolMember(schoolId);
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().isPublished == true
+        );
+        allow create: if isValidCourse(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(courseId) &&
+          incoming().id == courseId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/schools/$(schoolId)/programmes/$(incoming().programmeId)) &&
+          isSchoolTeacherOrStaff(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidCourse(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(courseId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().programmeId == existing().programmeId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolTeacherOrStaff(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'levelNumber', 'code', 'title', 'creditHours', 'lecturerName',
+                'caWeightPercent', 'practicalWeightPercent', 'examWeightPercent',
+                'isMandatory', 'examScheduleDate', 'semesterOrDiet',
+                'levelLabel', 'courseDetails', 'rationale', 'objectives', 'flyerDataUrl',
+                'isPublished', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(courseId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // PII-Isolated Enrolled Students
+      match /students/{studentId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(studentId) && (
+          isSchoolTeacherOrStaff(schoolId) ||
+          (resource != null && (existing().studentEmail == request.auth.token.email || existing().guardianEmail == request.auth.token.email))
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().studentEmail == request.auth.token.email ||
+          existing().guardianEmail == request.auth.token.email
+        );
+        allow create: if isValidStudent(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(studentId) &&
+          incoming().id == studentId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolStaffAdmin(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidStudent(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(studentId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'studentNumber', 'firstName', 'lastName', 'otherNames', 'gender',
+                'dob', 'photo', 'classId', 'stream', 'boardingStatus', 'studentEmail',
+                'guardianName', 'guardianPhone', 'guardianEmail', 'guardianRelationship',
+                'emergencyContact', 'medicalInfo', 'status', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(studentId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // PII-Isolated Professional Candidates
+      match /candidates/{candidateId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(candidateId) && (
+          isSchoolTeacherOrStaff(schoolId) ||
+          (resource != null && existing().email == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().email == request.auth.token.email
+        );
+        allow create: if isValidCandidate(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(candidateId) &&
+          incoming().id == candidateId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/schools/$(schoolId)/programmes/$(incoming().programmeId)) &&
+          isSchoolStaffAdmin(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidCandidate(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(candidateId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().programmeId == existing().programmeId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'firstName', 'lastName', 'otherNames', 'phone', 'photo',
+                'identityVerified', 'previousQualifications', 'currentLevel',
+                'completedLevels', 'status', 'membershipStatus', 'totalFeesBilled',
+                'totalFeesPaid', 'directoryConsent', 'headlineOrRole',
+                'updatedByUid', 'updatedAt'
+              ])
+            ) ||
+            (
+              existing().status != 'Suspended' &&
+              existing().email == request.auth.token.email &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'phone', 'directoryConsent', 'headlineOrRole', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(candidateId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // Candidate Course Assessments & Moderation
+      match /assessments/{assessmentId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(assessmentId) && (
+          isSchoolTeacherOrStaff(schoolId) ||
+          (resource != null && existing().candidateEmail == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().candidateEmail == request.auth.token.email
+        );
+        allow create: if isValidAssessment(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(assessmentId) &&
+          incoming().id == assessmentId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/schools/$(schoolId)/candidates/$(incoming().candidateId)) &&
+          exists(/databases/$(database)/documents/schools/$(schoolId)/courses/$(incoming().courseId)) &&
+          isSchoolTeacherOrStaff(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidAssessment(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(assessmentId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().candidateId == existing().candidateId &&
+          incoming().courseId == existing().courseId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolTeacherOrStaff(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'examDiet', 'attendancePercent', 'caScore', 'practicalScore',
+                'examScore', 'totalScore', 'grade', 'paperStatus',
+                'exemptionBasis', 'moderated', 'resitAttemptCount',
+                'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(assessmentId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // School Term Examination Results
+      match /examResults/{resultId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(resultId) && (
+          isSchoolTeacherOrStaff(schoolId) ||
+          (resource != null && existing().studentEmail == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().studentEmail == request.auth.token.email
+        );
+        allow create: if isValidExamResult(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(resultId) &&
+          incoming().id == resultId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/schools/$(schoolId)/students/$(incoming().studentId)) &&
+          isSchoolTeacherOrStaff(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidExamResult(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(resultId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().studentId == existing().studentId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolTeacherOrStaff(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'classScore', 'examScore', 'totalScore', 'grade',
+                'remarks', 'verified', 'published', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isVerifiedUser() && isValidId(schoolId) && isValidId(resultId) && isSchoolStaffAdmin(schoolId);
+      }
+
+      // PII-Isolated Fee Payments (Terminal Lock on Completed)
+      match /feePayments/{paymentId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(paymentId) && (
+          isSchoolTeacherOrStaff(schoolId) ||
+          (resource != null && existing().studentEmail == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().studentEmail == request.auth.token.email
+        );
+        allow create: if isValidFeePayment(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(paymentId) &&
+          incoming().id == paymentId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolTeacherOrStaff(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidFeePayment(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(paymentId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().receiptNumber == existing().receiptNumber &&
+          incoming().studentId == existing().studentId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              existing().status != 'Completed' &&
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedByUid', 'updatedAt'])
+            )
+          );
+        allow delete: if isPlatformAdmin() && isValidId(schoolId) && isValidId(paymentId);
+      }
+
+      // Issued Digital Credentials (Atomicity Guarantee via existsAfter + Terminal State Locking)
+      match /credentials/{credentialId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(credentialId) && (
+          isSchoolMember(schoolId) ||
+          (resource != null && existing().candidateEmail == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().candidateEmail == request.auth.token.email
+        );
+        allow create: if isValidIssuedCredential(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(credentialId) &&
+          incoming().id == credentialId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolStaffAdmin(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid) &&
+          existsAfter(/databases/$(database)/documents/publicCredentials/$(incoming().publicLookupKey)) &&
+          getAfter(/databases/$(database)/documents/publicCredentials/$(incoming().publicLookupKey)).data.status == incoming().status &&
+          getAfter(/databases/$(database)/documents/publicCredentials/$(incoming().publicLookupKey)).data.certificateNumber == incoming().certificateNumber;
+        allow update: if isValidIssuedCredential(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(credentialId) &&
+          incoming().id == existing().id &&
+          incoming().publicLookupKey == existing().publicLookupKey &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().certificateNumber == existing().certificateNumber &&
+          incoming().verificationCode == existing().verificationCode &&
+          incoming().candidateId == existing().candidateId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          existsAfter(/databases/$(database)/documents/publicCredentials/$(incoming().publicLookupKey)) &&
+          getAfter(/databases/$(database)/documents/publicCredentials/$(incoming().publicLookupKey)).data.status == incoming().status &&
+          (
+            isPlatformAdmin() ||
+            (
+              existing().status != 'Revoked' &&
+              existing().status != 'Replaced' &&
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'replacedByCertificateNumber', 'revocationOrStatusReason',
+                'auditTrail', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isPlatformAdmin() && isValidId(schoolId) && isValidId(credentialId);
+      }
+
+      // PII-Isolated Graduate & Alumni Register
+      match /graduates/{graduateId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(graduateId) && (
+          isSchoolStaffAdmin(schoolId) ||
+          (resource != null && existing().email == request.auth.token.email)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().email == request.auth.token.email
+        );
+        allow create: if isValidGraduateRecord(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(graduateId) &&
+          incoming().id == graduateId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isSchoolStaffAdmin(schoolId) &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidGraduateRecord(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(graduateId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().candidateId == existing().candidateId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'fullName', 'email', 'phone', 'photo', 'certificateNumber', 'verificationCode',
+                'certificateStatus', 'membershipStatus', 'directoryConsent',
+                'currentEmployerOrRole', 'updatedByUid', 'updatedAt'
+              ])
+            ) ||
+            (
+              existing().email == request.auth.token.email &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'phone', 'directoryConsent', 'currentEmployerOrRole', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isPlatformAdmin() && isValidId(schoolId) && isValidId(graduateId);
+      }
+
+      // Certificate Replacement Requests (Terminal Lock on Approved/Declined)
+      match /replacementRequests/{requestId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(requestId) && (
+          isSchoolStaffAdmin(schoolId) ||
+          (resource != null && existing().requesterUid == request.auth.uid)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().requesterUid == request.auth.uid
+        );
+        allow create: if isValidReplacementRequest(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(requestId) &&
+          incoming().id == requestId &&
+          incoming().schoolId == schoolId &&
+          incoming().requesterUid == request.auth.uid &&
+          incoming().status == 'Pending Review' &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if isValidReplacementRequest(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(requestId) &&
+          incoming().id == existing().id &&
+          incoming().schoolId == existing().schoolId &&
+          incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+          incoming().requesterUid == existing().requesterUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isPlatformAdmin() ||
+            (
+              existing().status == 'Pending Review' &&
+              isSchoolStaffAdmin(schoolId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'newCertificateNumber', 'updatedByUid', 'updatedAt'
+              ])
+            )
+          );
+        allow delete: if isPlatformAdmin() && isValidId(schoolId) && isValidId(requestId);
+      }
+
+      // Immutable Append-Only Verification Audit Logs
+      match /verificationLogs/{logId} {
+        allow get: if isVerifiedUser() && isValidId(schoolId) && isValidId(logId) && (
+          isSchoolStaffAdmin(schoolId) ||
+          (resource != null && existing().verifierUid == request.auth.uid)
+        );
+        allow list: if isVerifiedUser() && (
+          isBootstrappedAdmin() ||
+          existing().schoolOwnerUid == request.auth.uid ||
+          existing().verifierUid == request.auth.uid
+        );
+        allow create: if isValidVerificationLog(incoming()) &&
+          isValidId(schoolId) &&
+          isValidId(logId) &&
+          incoming().id == logId &&
+          incoming().schoolId == schoolId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          matchesSchoolOwnerUid(schoolId, incoming().schoolOwnerUid);
+        allow update: if false;
+        allow delete: if isPlatformAdmin() && isValidId(schoolId) && isValidId(logId);
+      }
+    }
+
+    // Privacy-Safe Public QR & Employer Verification Projection (Zero PII, Never Deleted)
+    match /publicCredentials/{certificateKey} {
+      allow get: if isValidId(certificateKey) && (resource == null || existing().isPublic == true || isPlatformAdmin());
+      allow list: if resource.data.isPublic == true || isBootstrappedAdmin();
+      allow create: if isValidPublicCredential(incoming()) &&
+        isValidId(certificateKey) &&
+        incoming().certificateKey == certificateKey &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isSchoolStaffAdmin(incoming().schoolId) &&
+        existsAfter(/databases/$(database)/documents/schools/$(incoming().schoolId)/credentials/$(incoming().credentialId));
+      allow update: if isValidPublicCredential(incoming()) &&
+        isValidId(certificateKey) &&
+        incoming().certificateKey == existing().certificateKey &&
+        incoming().credentialId == existing().credentialId &&
+        incoming().schoolId == existing().schoolId &&
+        incoming().certificateNumber == existing().certificateNumber &&
+        incoming().verificationCode == existing().verificationCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/schools/$(incoming().schoolId)/credentials/$(incoming().credentialId)) &&
+        (
+          isPlatformAdmin() ||
+          (
+            existing().status != 'Revoked' &&
+            existing().status != 'Replaced' &&
+            isSchoolStaffAdmin(existing().schoolId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'replacedByCertificateNumber', 'revocationOrStatusReason',
+              'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isPlatformAdmin() && isValidId(certificateKey);
+    }
+
+    // Consent-Based Public Graduate Directory (Zero PII, Requires directoryConsent == true)
+    match /publicGraduates/{graduateId} {
+      allow get: if isValidId(graduateId) && (resource == null || existing().directoryConsent == true || isPlatformAdmin());
+      allow list: if resource.data.directoryConsent == true || isBootstrappedAdmin();
+      allow create: if isValidPublicGraduate(incoming()) &&
+        isValidId(graduateId) &&
+        incoming().id == graduateId &&
+        incoming().directoryConsent == true &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isSchoolStaffAdmin(incoming().schoolId);
+      allow update: if isValidPublicGraduate(incoming()) &&
+        isValidId(graduateId) &&
+        incoming().id == existing().id &&
+        incoming().schoolId == existing().schoolId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isPlatformAdmin() ||
+          (
+            isSchoolStaffAdmin(existing().schoolId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'photo', 'certificateNumber', 'verificationCode',
+              'membershipStatus', 'currentEmployerOrRole', 'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isVerifiedUser() && isValidId(graduateId) && (
+        isPlatformAdmin() || isSchoolStaffAdmin(existing().schoolId) || existing().updatedByUid == request.auth.uid
+      );
+    }
+
+    // Open-Access Institutional Research & Academic Journals (Zero PII, +1 Monotonic Metrics)
+    match /publicArticles/{articleId} {
+      allow get: if isValidId(articleId) && (
+        resource == null ||
+        existing().isOpenToPublic == true ||
+        (isVerifiedUser() && (existing().authorUid == request.auth.uid || isSchoolMember(existing().schoolId)))
+      );
+      allow list: if resource.data.isOpenToPublic == true || isBootstrappedAdmin();
+      allow create: if isValidResearchArticle(incoming()) &&
+        isValidId(articleId) &&
+        incoming().id == articleId &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isSchoolTeacherOrStaff(incoming().schoolId) &&
+        matchesSchoolOwnerUid(incoming().schoolId, incoming().schoolOwnerUid);
+      allow update: if isValidResearchArticle(incoming()) &&
+        isValidId(articleId) &&
+        incoming().id == existing().id &&
+        incoming().schoolId == existing().schoolId &&
+        incoming().schoolOwnerUid == existing().schoolOwnerUid &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isPlatformAdmin() ||
+          (
+            (existing().authorUid == request.auth.uid || isSchoolStaffAdmin(existing().schoolId)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'subtitle', 'abstract', 'authors', 'category', 'keywords',
+              'status', 'sections', 'references', 'isOpenToPublic',
+              'viewsCount', 'downloadsCount', 'citationsCount', 'updatedByUid', 'updatedAt'
+            ])
+          ) ||
+          (
+            existing().isOpenToPublic == true &&
+            (incoming().viewsCount == existing().viewsCount || incoming().viewsCount == existing().viewsCount + 1) &&
+            (incoming().downloadsCount == existing().downloadsCount || incoming().downloadsCount == existing().downloadsCount + 1) &&
+            (incoming().citationsCount == existing().citationsCount || incoming().citationsCount == existing().citationsCount + 1) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'viewsCount', 'downloadsCount', 'citationsCount', 'updatedByUid', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isVerifiedUser() && isValidId(articleId) && (isPlatformAdmin() || isSchoolStaffAdmin(existing().schoolId));
+    }
+  }
+}

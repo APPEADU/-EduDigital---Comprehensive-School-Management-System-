@@ -1,0 +1,2762 @@
+{
+  "entities": {
+    "ConnectionProbe": {
+      "title": "ConnectionProbe",
+      "description": "Read-only connectivity probe document used by getDocFromServer on application boot.",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "Connectivity heartbeat indicator."
+        }
+      },
+      "required": ["ok"]
+    },
+    "PlatformAdmin": {
+      "title": "PlatformAdmin",
+      "description": "Trusted platform super-administrator registry document.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the administrator."
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Administrative authorization note."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the actor performing the write."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "note", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "UserPublicProfile": {
+      "title": "UserPublicProfile",
+      "description": "Non-PII user profile metadata stored under /users/{userId}/public/profile.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "User full display name."
+        },
+        "accountTier": {
+          "type": "string",
+          "enum": ["standard"],
+          "maxLength": 32,
+          "description": "Non-privileged account tier; institutional roles are governed via /schools/{schoolId}/members."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Academic or professional title."
+        },
+        "avatar": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Profile avatar URL or bounded cropped passport Data URL."
+        },
+        "activeSchoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Last active school identifier."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user updating this profile."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "accountTier", "title", "avatar", "activeSchoolId", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Strictly isolated PII record stored under /users/{userId}/private/info.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Verified Google account email address."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Optional personal phone number."
+        },
+        "linkedStudentId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "Optional linked student ID."
+        },
+        "linkedCandidateId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128,
+          "description": "Optional linked candidate ID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the actor updating this document."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "email", "phone", "linkedStudentId", "linkedCandidateId", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "SchoolInstitution": {
+      "title": "SchoolInstitution",
+      "description": "Master Gate root institutional profile for schools, colleges, and professional institutes.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique school identifier."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Official institution name."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Official institutional short code."
+        },
+        "motto": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "Institution motto."
+        },
+        "crest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150000,
+          "description": "Institution crest URL or bounded image data URL."
+        },
+        "levelType": {
+          "type": "string",
+          "enum": ["SHS", "Basic & JHS", "Combined", "Professional Institute", "Vocational Training Centre", "College / Polytechnic", "Executive Education"],
+          "maxLength": 64,
+          "description": "Institutional classification."
+        },
+        "region": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Region."
+        },
+        "district": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "District or municipality."
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "Institutional physical address."
+        },
+        "officialPhone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Public institutional registry phone."
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50,
+          "description": "Direct WhatsApp phone number configured by the school or institute owner."
+        },
+        "whatsappEnabled": {
+          "type": "boolean",
+          "description": "Whether direct visitor WhatsApp messaging is enabled for this school or institute."
+        },
+        "officialEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Public institutional registry email."
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16,
+          "description": "Billing currency code (e.g., GHS)."
+        },
+        "currentAcademicYear": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "description": "Current academic year."
+        },
+        "currentTerm": {
+          "type": "string",
+          "enum": ["Term 1", "Term 2", "Term 3", "Semester 1", "Semester 2"],
+          "maxLength": 32,
+          "description": "Current academic term or semester."
+        },
+        "termStartDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Term start date."
+        },
+        "termEndDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Term end date."
+        },
+        "nextTermBegins": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Next term opening date."
+        },
+        "headmasterName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Name of Head of Institution."
+        },
+        "headmasterSignature": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Text signature label."
+        },
+        "enabledModules": {
+          "type": "array",
+          "description": "Bounded list (max 25) of enabled module IDs."
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the institution creator/owner."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the last authorised updater."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the institution appears in the public institution switcher."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "name", "code", "motto", "crest", "levelType", "region", "district",
+        "address", "officialPhone", "officialEmail", "currency", "currentAcademicYear",
+        "currentTerm", "termStartDate", "termEndDate", "nextTermBegins", "headmasterName",
+        "headmasterSignature", "enabledModules", "ownerUid", "updatedByUid", "isPublic",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "SchoolMember": {
+      "title": "SchoolMember",
+      "description": "Role-based institutional membership document under /schools/{schoolId}/members/{memberUid}. Contains zero personal contact PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the member."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the parent school owner for cost-safe list queries."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Member display name."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["proprietor", "admin", "teacher", "accountant", "parent", "student", "graduate", "librarian", "housemaster"],
+          "maxLength": 32,
+          "description": "Institutional RBAC role."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Official institutional title."
+        },
+        "avatar": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Profile photo URL or bounded cropped passport Data URL."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the actor writing this record."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "schoolId", "schoolOwnerUid", "name", "role", "title", "avatar", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "AuthorizedSignatoryDoc": {
+      "title": "AuthorizedSignatoryDoc",
+      "description": "Drawn or uploaded digital signature record for teachers, registrars, and heads of institution.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Signatory ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of signatory creator."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of last updater."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Signatory full name."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Official title printed on certificates."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Registrar", "Head of Institution", "Academic Dean", "Chief Examiner", "Lead Lecturer / Teacher", "Council Chair"],
+          "maxLength": 64,
+          "description": "Signatory role category."
+        },
+        "signatureDataUrl": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 180000,
+          "description": "Bounded PNG/SVG data URL of drawn or uploaded signature."
+        },
+        "signatureMethod": {
+          "type": "string",
+          "enum": ["drawn", "uploaded"],
+          "maxLength": 16,
+          "description": "Method used to capture signature."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether signatory is active for certificate issuance."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "authorUid", "updatedByUid",
+        "name", "title", "role", "signatureDataUrl", "signatureMethod",
+        "active", "createdAt", "updatedAt"
+      ]
+    },
+    "ProfessionalProgrammeDoc": {
+      "title": "ProfessionalProgrammeDoc",
+      "description": "Multi-level academic or professional certification programme definition.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Programme ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of last updater."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Programme code."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Programme title."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Professional Qualification", "Diploma Programme", "Certificate Programme", "Executive Education", "Vocational & Technical", "Short Course", "Secondary / Basic Completion"],
+          "maxLength": 64,
+          "description": "Programme category."
+        },
+        "qualificationAwarded": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 240,
+          "description": "Qualification title awarded on completion."
+        },
+        "professionalDesignation": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200,
+          "description": "Optional external professional body designation."
+        },
+        "affiliatedProfessionalBody": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 220,
+          "description": "Optional affiliated professional body."
+        },
+        "awardingAuthorityModel": {
+          "type": "string",
+          "enum": ["Institution Direct Award", "Affiliated Awarding Body", "Dual: Institution Award + Professional Body Designation"],
+          "maxLength": 80,
+          "description": "Awarding authority governance model."
+        },
+        "durationLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Programme duration description."
+        },
+        "totalCreditHours": {
+          "type": "number",
+          "description": "Total required credit hours."
+        },
+        "entryRequirements": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Entry requirements."
+        },
+        "assessmentMethods": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Assessment methods."
+        },
+        "examinationRegulations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Examination regulations."
+        },
+        "progressionRules": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Progression rules across levels."
+        },
+        "completionRequirements": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Graduation completion requirements."
+        },
+        "feeClearanceRequired": {
+          "type": "boolean",
+          "description": "Whether fee clearance is mandatory."
+        },
+        "levels": {
+          "type": "array",
+          "description": "Bounded array (1 to 6) of level configuration maps."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Review", "Archived"],
+          "maxLength": 24,
+          "description": "Programme status."
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Whether visible in student course catalog."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "code", "title",
+        "category", "qualificationAwarded", "professionalDesignation",
+        "affiliatedProfessionalBody", "awardingAuthorityModel", "durationLabel",
+        "totalCreditHours", "entryRequirements", "assessmentMethods",
+        "examinationRegulations", "progressionRules", "completionRequirements",
+        "feeClearanceRequired", "levels", "status", "isPublished",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "ProgrammeCourseDoc": {
+      "title": "ProgrammeCourseDoc",
+      "description": "Course curriculum unit belonging to a ProfessionalProgrammeDoc.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Course ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "programmeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced programme ID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of updater."
+        },
+        "levelNumber": {
+          "type": "number",
+          "description": "Programme level number (1 to 6)."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Course code."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Course title."
+        },
+        "creditHours": {
+          "type": "number",
+          "description": "Credit hours."
+        },
+        "lecturerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Assigned lecturer name."
+        },
+        "caWeightPercent": {
+          "type": "number",
+          "description": "Continuous assessment weight."
+        },
+        "practicalWeightPercent": {
+          "type": "number",
+          "description": "Practical weight."
+        },
+        "examWeightPercent": {
+          "type": "number",
+          "description": "Final exam weight."
+        },
+        "isMandatory": {
+          "type": "boolean",
+          "description": "Whether mandatory for level progression."
+        },
+        "examScheduleDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Scheduled exam date."
+        },
+        "semesterOrDiet": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Semester or examination diet."
+        },
+        "levelLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Display level label (Level 1, Level 2, Level 3, or Certificate)."
+        },
+        "courseDetails": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000,
+          "description": "Detailed syllabus overview and scope of the course."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 3000,
+          "description": "Academic and professional rationale for offering the course."
+        },
+        "objectives": {
+          "type": "array",
+          "description": "Bounded array (0 to 20) of course learning objective strings."
+        },
+        "flyerDataUrl": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 250000,
+          "description": "Optional promotional course flyer image Data URL or HTTPS image URL."
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Published visibility flag."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "programmeId", "updatedByUid",
+        "levelNumber", "code", "title", "creditHours", "lecturerName",
+        "caWeightPercent", "practicalWeightPercent", "examWeightPercent",
+        "isMandatory", "examScheduleDate", "semesterOrDiet",
+        "levelLabel", "courseDetails", "rationale", "objectives", "flyerDataUrl",
+        "isPublished", "createdAt", "updatedAt"
+      ]
+    },
+    "StudentRecordDoc": {
+      "title": "StudentRecordDoc",
+      "description": "Enrolled student record containing guardian PII, strictly isolated to school staff and matching verified student/guardian email.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Student ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of updater."
+        },
+        "studentNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Unique student index number."
+        },
+        "firstName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "First name."
+        },
+        "lastName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Last name."
+        },
+        "otherNames": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Middle or other names."
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["Male", "Female"],
+          "maxLength": 16,
+          "description": "Gender."
+        },
+        "dob": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Date of birth."
+        },
+        "photo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Student passport photo URL or bounded cropped Data URL."
+        },
+        "classId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Assigned class ID."
+        },
+        "stream": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Academic stream."
+        },
+        "boardingStatus": {
+          "type": "string",
+          "enum": ["Boarding", "Day"],
+          "maxLength": 20,
+          "description": "Boarding or Day status."
+        },
+        "studentEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Student portal email for verified self-service read access."
+        },
+        "guardianName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Parent or guardian full name."
+        },
+        "guardianPhone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Guardian phone number."
+        },
+        "guardianEmail": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 254,
+          "description": "Guardian email address."
+        },
+        "guardianRelationship": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60,
+          "description": "Guardian relationship."
+        },
+        "emergencyContact": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Emergency contact."
+        },
+        "medicalInfo": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500,
+          "description": "Medical notes."
+        },
+        "admissionDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Admission date."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Withdrawn", "Graduated", "Suspended"],
+          "maxLength": 24,
+          "description": "Enrollment status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "studentNumber",
+        "firstName", "lastName", "otherNames", "gender", "dob", "photo",
+        "classId", "stream", "boardingStatus", "studentEmail", "guardianName",
+        "guardianPhone", "guardianEmail", "guardianRelationship",
+        "emergencyContact", "medicalInfo", "admissionDate", "status",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "CandidateProfileDoc": {
+      "title": "CandidateProfileDoc",
+      "description": "Professional certification candidate profile with PII isolated to staff and the verified candidate.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Candidate document ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of last updater."
+        },
+        "candidateNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Unique candidate registration ID."
+        },
+        "firstName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "First name."
+        },
+        "lastName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Last name."
+        },
+        "otherNames": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Other names."
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["Male", "Female"],
+          "maxLength": 16,
+          "description": "Gender."
+        },
+        "dob": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Date of birth."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Candidate email for verified portal login."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Candidate phone."
+        },
+        "photo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Candidate passport photo URL or bounded cropped Data URL."
+        },
+        "nationalIdNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "National ID or Passport reference."
+        },
+        "identityVerified": {
+          "type": "boolean",
+          "description": "Whether candidate identity has been verified."
+        },
+        "identityDocumentType": {
+          "type": "string",
+          "enum": ["Ghana Card (NIA)", "Passport", "Birth Certificate / GES Index"],
+          "maxLength": 64,
+          "description": "Identity document type."
+        },
+        "previousQualifications": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500,
+          "description": "Entry qualifications."
+        },
+        "programmeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Enrolled programme ID."
+        },
+        "currentLevel": {
+          "type": "number",
+          "description": "Current enrolled level."
+        },
+        "completedLevels": {
+          "type": "array",
+          "description": "Bounded list (max 6) of completed level numbers."
+        },
+        "enrollmentDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Enrollment date."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Completed / Graduated", "Deferred", "Suspended"],
+          "maxLength": 32,
+          "description": "Candidate registration status."
+        },
+        "membershipStatus": {
+          "type": "string",
+          "enum": [
+            "Registered Student Candidate",
+            "Affiliate / Technician Member",
+            "Graduate Member (Institution Complete)",
+            "Associate Member (Awarded by External Professional Body)",
+            "Fellow (Awarded by External Professional Body)",
+            "Not Applicable (Academic / Vocational Only)"
+          ],
+          "maxLength": 80,
+          "description": "Professional membership status."
+        },
+        "totalFeesBilled": {
+          "type": "number",
+          "description": "Cumulative fees billed."
+        },
+        "totalFeesPaid": {
+          "type": "number",
+          "description": "Cumulative fees paid."
+        },
+        "directoryConsent": {
+          "type": "boolean",
+          "description": "Candidate consent for public graduate directory."
+        },
+        "headlineOrRole": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Professional role headline."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "candidateNumber",
+        "firstName", "lastName", "otherNames", "gender", "dob", "email", "phone",
+        "photo", "nationalIdNumber", "identityVerified", "identityDocumentType",
+        "previousQualifications", "programmeId", "currentLevel", "completedLevels",
+        "enrollmentDate", "status", "membershipStatus", "totalFeesBilled",
+        "totalFeesPaid", "directoryConsent", "headlineOrRole", "createdAt", "updatedAt"
+      ]
+    },
+    "CandidateAssessmentDoc": {
+      "title": "CandidateAssessmentDoc",
+      "description": "Candidate examination, CA, practical, moderation, exemption, and resit assessment record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Assessment ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of examiner/admin updating record."
+        },
+        "candidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced candidate ID."
+        },
+        "candidateEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Candidate email for verified self-service read."
+        },
+        "programmeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced programme ID."
+        },
+        "courseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced course ID."
+        },
+        "levelNumber": {
+          "type": "number",
+          "description": "Course level."
+        },
+        "examDiet": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Examination diet."
+        },
+        "attendancePercent": {
+          "type": "number",
+          "description": "Lecture attendance percentage."
+        },
+        "caScore": {
+          "type": "number",
+          "description": "Continuous assessment score."
+        },
+        "practicalScore": {
+          "type": "number",
+          "description": "Practical score."
+        },
+        "examScore": {
+          "type": "number",
+          "description": "Final exam score."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "Combined total score (0-100)."
+        },
+        "grade": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16,
+          "description": "Awarded grade."
+        },
+        "paperStatus": {
+          "type": "string",
+          "enum": ["Registered", "Passed", "Resit Required", "Exempted", "Deferred", "Under Moderation", "Appeal Lodged"],
+          "maxLength": 32,
+          "description": "Paper standing."
+        },
+        "exemptionBasis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 240,
+          "description": "Exemption basis if exempted."
+        },
+        "moderated": {
+          "type": "boolean",
+          "description": "Moderation approval state."
+        },
+        "resitAttemptCount": {
+          "type": "number",
+          "description": "Number of resit attempts."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "candidateId",
+        "candidateEmail", "programmeId", "courseId", "levelNumber", "examDiet",
+        "attendancePercent", "caScore", "practicalScore", "examScore",
+        "totalScore", "grade", "paperStatus", "exemptionBasis", "moderated",
+        "resitAttemptCount", "createdAt", "updatedAt"
+      ]
+    },
+    "ExamResultDoc": {
+      "title": "ExamResultDoc",
+      "description": "Basic/SHS school examination result record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Exam result ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of teacher/admin."
+        },
+        "studentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced student ID."
+        },
+        "studentEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Student email for verified portal read access."
+        },
+        "classId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Class ID."
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Subject ID."
+        },
+        "term": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Academic term."
+        },
+        "academicYear": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "description": "Academic year."
+        },
+        "classScore": {
+          "type": "number",
+          "description": "Continuous assessment score."
+        },
+        "examScore": {
+          "type": "number",
+          "description": "Exam score."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "Combined score."
+        },
+        "grade": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8,
+          "description": "Grade."
+        },
+        "remarks": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Grade remark."
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Verified flag."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Published flag."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "studentId",
+        "studentEmail", "classId", "subjectId", "term", "academicYear",
+        "classScore", "examScore", "totalScore", "grade", "remarks",
+        "verified", "published", "createdAt", "updatedAt"
+      ]
+    },
+    "FeePaymentDoc": {
+      "title": "FeePaymentDoc",
+      "description": "Student/candidate tuition or examination fee receipt with PII isolated.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Payment ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of bursar/accountant."
+        },
+        "receiptNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Official receipt number."
+        },
+        "studentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Student or candidate ID."
+        },
+        "studentEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Student/candidate email for verified receipt viewing."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Amount paid."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["MTN Mobile Money", "Telecel Cash", "AT Money", "Bank Transfer", "Cash"],
+          "maxLength": 40,
+          "description": "Payment channel."
+        },
+        "transactionRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "External transaction reference."
+        },
+        "payerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Payer full name."
+        },
+        "payerPhone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Payer phone number."
+        },
+        "date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Payment date."
+        },
+        "term": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Term."
+        },
+        "academicYear": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "description": "Academic year."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Completed", "Pending", "Failed"],
+          "maxLength": 24,
+          "description": "Payment settlement status (Completed is terminal for non-admins)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "receiptNumber",
+        "studentId", "studentEmail", "amountPaid", "paymentMethod",
+        "transactionRef", "payerName", "payerPhone", "date", "term",
+        "academicYear", "status", "createdAt", "updatedAt"
+      ]
+    },
+    "IssuedCredentialDoc": {
+      "title": "IssuedCredentialDoc",
+      "description": "Authoritative digital certificate record synced atomically with /publicCredentials/{publicLookupKey}.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Credential document ID."
+        },
+        "publicLookupKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Normalized certificate serial key in /publicCredentials."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Issuing school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of issuing officer."
+        },
+        "schoolName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Issuing institution name."
+        },
+        "schoolCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Issuing institution code."
+        },
+        "schoolCrest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150000,
+          "description": "Institution crest URL."
+        },
+        "certificateNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Unique certificate serial number."
+        },
+        "verificationCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "QR verification code."
+        },
+        "candidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Recipient candidate/student ID."
+        },
+        "candidateEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Recipient verified portal email."
+        },
+        "candidateNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Candidate index number."
+        },
+        "recipientFullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180,
+          "description": "Graduate full name."
+        },
+        "programmeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Programme ID."
+        },
+        "programmeTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Programme title."
+        },
+        "credentialType": {
+          "type": "string",
+          "enum": [
+            "Full Qualification Certificate",
+            "Level Completion Certificate",
+            "Diploma Certificate",
+            "Executive Programme Certificate",
+            "Short Course Certificate",
+            "Professional Examination Pass Certificate",
+            "Official Academic Transcript",
+            "Statement of Results",
+            "Letter of Completion",
+            "Digital Credential Badge"
+          ],
+          "maxLength": 80,
+          "description": "Credential document classification."
+        },
+        "qualificationAwarded": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 240,
+          "description": "Qualification awarded."
+        },
+        "levelCompletedLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Completed level description."
+        },
+        "honoursOrDistinction": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Honours or distinction classification."
+        },
+        "creditHoursCompleted": {
+          "type": "number",
+          "description": "Completed credit hours."
+        },
+        "issueDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Date of award."
+        },
+        "expiryDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32,
+          "description": "Optional credential expiry date."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Valid", "Pending Approval", "Revoked", "Replaced", "Expired"],
+          "maxLength": 32,
+          "description": "Credential validity status (Revoked and Replaced are terminal states)."
+        },
+        "replacedByCertificateNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Replacement certificate serial if replaced."
+        },
+        "revocationOrStatusReason": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Official status/revocation reason."
+        },
+        "awardingAuthorityName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Awarding authority name."
+        },
+        "professionalBodyAffiliationNote": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Affiliation note distinguishing institutional award vs professional body designation."
+        },
+        "templateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Certificate design template ID."
+        },
+        "signatoriesSnapshot": {
+          "type": "array",
+          "description": "Bounded array (max 3) of signatory snapshots."
+        },
+        "auditTrail": {
+          "type": "array",
+          "description": "Bounded array (max 25) of immutable audit trail entries."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "publicLookupKey", "schoolId", "schoolOwnerUid", "updatedByUid",
+        "schoolName", "schoolCode", "schoolCrest", "certificateNumber",
+        "verificationCode", "candidateId", "candidateEmail", "candidateNumber",
+        "recipientFullName", "programmeId", "programmeTitle", "credentialType",
+        "qualificationAwarded", "levelCompletedLabel", "honoursOrDistinction",
+        "creditHoursCompleted", "issueDate", "expiryDate", "status",
+        "replacedByCertificateNumber", "revocationOrStatusReason",
+        "awardingAuthorityName", "professionalBodyAffiliationNote", "templateId",
+        "signatoriesSnapshot", "auditTrail", "createdAt", "updatedAt"
+      ]
+    },
+    "PublicCredentialVerificationDoc": {
+      "title": "PublicCredentialVerificationDoc",
+      "description": "Privacy-filtered public QR & employer verification projection containing zero marks, financial balances, or private contact details.",
+      "type": "object",
+      "properties": {
+        "certificateKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Normalized lookup key."
+        },
+        "credentialId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Source credential ID in /schools/{schoolId}/credentials."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Issuing school ID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of authorised officer."
+        },
+        "certificateNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Certificate serial number."
+        },
+        "verificationCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "Verification code."
+        },
+        "recipientFullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180,
+          "description": "Graduate full name."
+        },
+        "candidateNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Candidate ID."
+        },
+        "issuingInstitutionName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Issuing institution name."
+        },
+        "issuingInstitutionCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Issuing institution code."
+        },
+        "issuingInstitutionCrest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150000,
+          "description": "Institution crest."
+        },
+        "awardingAuthorityName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Awarding authority."
+        },
+        "professionalBodyAffiliationNote": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Affiliation note."
+        },
+        "credentialType": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Credential type."
+        },
+        "programmeTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Programme title."
+        },
+        "qualificationAwarded": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 240,
+          "description": "Qualification awarded."
+        },
+        "levelCompletedLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Completed level."
+        },
+        "honoursOrDistinction": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Honours/distinction."
+        },
+        "issueDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Date of issuance."
+        },
+        "expiryDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32,
+          "description": "Optional expiry date."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Valid", "Pending Approval", "Revoked", "Replaced", "Expired"],
+          "maxLength": 32,
+          "description": "Credential validity status."
+        },
+        "replacedByCertificateNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Replacement serial if replaced."
+        },
+        "revocationOrStatusReason": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Revocation or replacement reason."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Always true so public QR verifiers can query/verify."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "certificateKey", "credentialId", "schoolId", "updatedByUid",
+        "certificateNumber", "verificationCode", "recipientFullName",
+        "candidateNumber", "issuingInstitutionName", "issuingInstitutionCode",
+        "issuingInstitutionCrest", "awardingAuthorityName",
+        "professionalBodyAffiliationNote", "credentialType", "programmeTitle",
+        "qualificationAwarded", "levelCompletedLabel", "honoursOrDistinction",
+        "issueDate", "expiryDate", "status", "replacedByCertificateNumber",
+        "revocationOrStatusReason", "isPublic", "createdAt", "updatedAt"
+      ]
+    },
+    "GraduateRecordDoc": {
+      "title": "GraduateRecordDoc",
+      "description": "Permanent institutional alumni record containing graduate contact PII isolated to staff and the graduate.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Graduate record ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of updater."
+        },
+        "candidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Candidate ID."
+        },
+        "candidateNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Candidate number."
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180,
+          "description": "Graduate full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Graduate private email."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Graduate private phone."
+        },
+        "photo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Graduate passport photo URL or bounded cropped Data URL."
+        },
+        "programmeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Programme ID."
+        },
+        "programmeTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Programme title."
+        },
+        "qualificationAwarded": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 240,
+          "description": "Qualification awarded."
+        },
+        "levelAttained": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Level attained."
+        },
+        "graduationYear": {
+          "type": "number",
+          "description": "Graduation year."
+        },
+        "completionApprovedDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Completion approval date."
+        },
+        "certificateNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Certificate serial."
+        },
+        "verificationCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "Verification code."
+        },
+        "certificateStatus": {
+          "type": "string",
+          "enum": ["Valid", "Pending Approval", "Revoked", "Replaced", "Expired"],
+          "maxLength": 32,
+          "description": "Certificate validity status."
+        },
+        "membershipStatus": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Membership status."
+        },
+        "directoryConsent": {
+          "type": "boolean",
+          "description": "Graduate opt-in consent for public employer search."
+        },
+        "currentEmployerOrRole": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Current role/employer."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "updatedByUid", "candidateId",
+        "candidateNumber", "fullName", "email", "phone", "photo",
+        "programmeId", "programmeTitle", "qualificationAwarded",
+        "levelAttained", "graduationYear", "completionApprovedDate",
+        "certificateNumber", "verificationCode", "certificateStatus",
+        "membershipStatus", "directoryConsent", "currentEmployerOrRole",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "PublicGraduateDirectoryDoc": {
+      "title": "PublicGraduateDirectoryDoc",
+      "description": "Consent-based public graduate directory entry containing zero personal contact PII.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Graduate ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School ID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of updater."
+        },
+        "institutionName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "description": "Institution name."
+        },
+        "institutionCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Institution code."
+        },
+        "candidateNumber": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Candidate number."
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180,
+          "description": "Graduate full name."
+        },
+        "photo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Graduate directory photo URL or bounded cropped Data URL."
+        },
+        "programmeTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 220,
+          "description": "Programme title."
+        },
+        "qualificationAwarded": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 240,
+          "description": "Qualification awarded."
+        },
+        "levelAttained": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Level attained."
+        },
+        "graduationYear": {
+          "type": "number",
+          "description": "Graduation year."
+        },
+        "certificateNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Certificate number."
+        },
+        "verificationCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "description": "Verification code."
+        },
+        "certificateStatus": {
+          "type": "string",
+          "enum": ["Valid"],
+          "maxLength": 32,
+          "description": "Only Valid certificates appear in the public directory."
+        },
+        "membershipStatus": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Membership status."
+        },
+        "currentEmployerOrRole": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Current role."
+        },
+        "directoryConsent": {
+          "type": "boolean",
+          "description": "Must be true."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "updatedByUid", "institutionName", "institutionCode",
+        "candidateNumber", "fullName", "photo", "programmeTitle",
+        "qualificationAwarded", "levelAttained", "graduationYear",
+        "certificateNumber", "verificationCode", "certificateStatus",
+        "membershipStatus", "currentEmployerOrRole", "directoryConsent",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "ReplacementRequestDoc": {
+      "title": "ReplacementRequestDoc",
+      "description": "Graduate or student request for a replacement certificate.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Request ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "requesterUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of requester."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of actor."
+        },
+        "candidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Candidate ID."
+        },
+        "originalCertificateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Original credential ID."
+        },
+        "originalCertificateNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80,
+          "description": "Original serial number."
+        },
+        "requesterName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180,
+          "description": "Requester name."
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["Damaged Physical Copy", "Legal Name Correction", "Lost Credential Re-issue", "Signatory / Administrative Update"],
+          "maxLength": 64,
+          "description": "Replacement reason."
+        },
+        "details": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "Supporting explanation."
+        },
+        "requestedDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Requested date."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending Review", "Approved & Re-issued", "Declined"],
+          "maxLength": 32,
+          "description": "Review status (Approved & Re-issued and Declined are terminal states)."
+        },
+        "newCertificateNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Issued replacement certificate serial."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "requesterUid", "updatedByUid",
+        "candidateId", "originalCertificateId", "originalCertificateNumber",
+        "requesterName", "reason", "details", "requestedDate", "status",
+        "newCertificateNumber", "createdAt", "updatedAt"
+      ]
+    },
+    "VerificationLogDoc": {
+      "title": "VerificationLogDoc",
+      "description": "Immutable append-only audit log of authenticated credential verification requests.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Verification log ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Target school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "verifierUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated verifier UID."
+        },
+        "timestamp": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Human-readable UTC timestamp."
+        },
+        "queriedReference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Queried serial or verification code."
+        },
+        "matchedCertificateNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Matched certificate number."
+        },
+        "recipientName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 180,
+          "description": "Matched recipient name."
+        },
+        "verifierOrganization": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Employer or verifying organization."
+        },
+        "verifierContactName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Verifier contact name."
+        },
+        "verificationPurpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Stated legal/employment verification purpose."
+        },
+        "lookupMode": {
+          "type": "string",
+          "enum": ["Single Lookup / QR Scan", "Employer Batch Verification"],
+          "maxLength": 48,
+          "description": "Verification mode."
+        },
+        "resultStatus": {
+          "type": "string",
+          "enum": ["Valid", "Pending Approval", "Revoked", "Replaced", "Expired", "Not Found"],
+          "maxLength": 32,
+          "description": "Verification outcome."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "verifierUid", "timestamp",
+        "queriedReference", "matchedCertificateNumber", "recipientName",
+        "verifierOrganization", "verifierContactName", "verificationPurpose",
+        "lookupMode", "resultStatus", "createdAt", "updatedAt"
+      ]
+    },
+    "ResearchArticleDoc": {
+      "title": "ResearchArticleDoc",
+      "description": "Open-access scholarly journal article containing zero personal contact PII.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Article ID."
+        },
+        "schoolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Publishing school ID."
+        },
+        "schoolOwnerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "School owner UID."
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Publishing author UID."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Last updater UID."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300,
+          "description": "Article title."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Subtitle."
+        },
+        "abstract": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 4000,
+          "description": "Abstract."
+        },
+        "authors": {
+          "type": "array",
+          "description": "Bounded array (1 to 10) of non-PII author maps (name, role, affiliation)."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "STEM & Applied Science",
+            "Education & Pedagogy",
+            "African History & Heritage",
+            "Environmental & Climate Studies",
+            "Economics & Commerce",
+            "ICT, AI & Robotics",
+            "Literature & Cultural Studies"
+          ],
+          "maxLength": 64,
+          "description": "Research discipline."
+        },
+        "keywords": {
+          "type": "array",
+          "description": "Bounded array (1 to 12) of keyword strings."
+        },
+        "publicationDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Publication date."
+        },
+        "volume": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Volume and issue."
+        },
+        "doi": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Digital Object Identifier."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Published Open Access", "Peer Reviewed", "Faculty Working Paper", "Student Capstone", "Under Review"],
+          "maxLength": 48,
+          "description": "Editorial status."
+        },
+        "viewsCount": {
+          "type": "number",
+          "description": "Total views."
+        },
+        "downloadsCount": {
+          "type": "number",
+          "description": "Total downloads."
+        },
+        "citationsCount": {
+          "type": "number",
+          "description": "Total citations."
+        },
+        "license": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Open-access license."
+        },
+        "sections": {
+          "type": "array",
+          "description": "Bounded array (1 to 15) of article section maps."
+        },
+        "references": {
+          "type": "array",
+          "description": "Bounded array (0 to 30) of bibliographic citation strings."
+        },
+        "isOpenToPublic": {
+          "type": "boolean",
+          "description": "Public open-access visibility flag."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "schoolId", "schoolOwnerUid", "authorUid", "updatedByUid",
+        "title", "subtitle", "abstract", "authors", "category", "keywords",
+        "publicationDate", "volume", "doi", "status", "viewsCount",
+        "downloadsCount", "citationsCount", "license", "sections",
+        "references", "isOpenToPublic", "createdAt", "updatedAt"
+      ]
+    },
+    "PlatformOwnerProfileDoc": {
+      "title": "PlatformOwnerProfileDoc",
+      "description": "Publicly readable Platform Owner & Developer portrait, introduction, and direct WhatsApp contact singleton managed exclusively by Super Administrators.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Singleton setting document ID (ownerProfile)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Platform Owner & Developer full name."
+        },
+        "roleTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Official role title."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 260,
+          "description": "Section vision subtitle."
+        },
+        "bio": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1500,
+          "description": "Brief professional introduction."
+        },
+        "photoUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180000,
+          "description": "Passport photograph path, URL, or bounded cropped Data URL."
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 50,
+          "description": "Direct WhatsApp phone number."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Public website visibility flag."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the Super Administrator updating the profile."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id", "name", "roleTitle", "subtitle", "bio", "photoUrl",
+        "whatsappNumber", "isPublic", "updatedByUid", "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/test/{docId}": {
+      "schema": "ConnectionProbe",
+      "description": "Boot connectivity check target for getDocFromServer."
+    },
+    "/platformSettings/{settingId}": {
+      "schema": "PlatformOwnerProfileDoc",
+      "description": "Publicly readable Platform Owner & Developer website profile singleton."
+    },
+    "/admins/{adminUid}": {
+      "schema": "PlatformAdmin",
+      "description": "Trusted platform super-administrator lookup documents."
+    },
+    "/users/{userId}/public/{docId}": {
+      "schema": "UserPublicProfile",
+      "description": "Non-PII split user profile document."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": "UserPrivateInfo",
+      "description": "Isolated PII user profile document."
+    },
+    "/schools/{schoolId}": {
+      "schema": "SchoolInstitution",
+      "description": "Master Gate root institutional profile documents."
+    },
+    "/schools/{schoolId}/members/{memberUid}": {
+      "schema": "SchoolMember",
+      "description": "Institutional RBAC membership subcollection."
+    },
+    "/schools/{schoolId}/signatories/{signatoryId}": {
+      "schema": "AuthorizedSignatoryDoc",
+      "description": "Authorized digital signatories for institutional certificates."
+    },
+    "/schools/{schoolId}/programmes/{programmeId}": {
+      "schema": "ProfessionalProgrammeDoc",
+      "description": "Multi-level certification and diploma programmes."
+    },
+    "/schools/{schoolId}/courses/{courseId}": {
+      "schema": "ProgrammeCourseDoc",
+      "description": "Courses belonging to institutional programmes."
+    },
+    "/schools/{schoolId}/students/{studentId}": {
+      "schema": "StudentRecordDoc",
+      "description": "PII-isolated school student enrollment records."
+    },
+    "/schools/{schoolId}/candidates/{candidateId}": {
+      "schema": "CandidateProfileDoc",
+      "description": "PII-isolated professional candidate profiles."
+    },
+    "/schools/{schoolId}/assessments/{assessmentId}": {
+      "schema": "CandidateAssessmentDoc",
+      "description": "Candidate course marks, moderation, exemptions, and resits."
+    },
+    "/schools/{schoolId}/examResults/{resultId}": {
+      "schema": "ExamResultDoc",
+      "description": "Term examination and continuous assessment results."
+    },
+    "/schools/{schoolId}/feePayments/{paymentId}": {
+      "schema": "FeePaymentDoc",
+      "description": "PII-isolated tuition and examination fee payment receipts."
+    },
+    "/schools/{schoolId}/credentials/{credentialId}": {
+      "schema": "IssuedCredentialDoc",
+      "description": "Institutional issued certificates and audit trails."
+    },
+    "/schools/{schoolId}/graduates/{graduateId}": {
+      "schema": "GraduateRecordDoc",
+      "description": "PII-isolated institutional alumni register."
+    },
+    "/schools/{schoolId}/replacementRequests/{requestId}": {
+      "schema": "ReplacementRequestDoc",
+      "description": "Graduate certificate replacement requests."
+    },
+    "/schools/{schoolId}/verificationLogs/{logId}": {
+      "schema": "VerificationLogDoc",
+      "description": "Append-only credential verification audit log."
+    },
+    "/publicCredentials/{certificateKey}": {
+      "schema": "PublicCredentialVerificationDoc",
+      "description": "Privacy-safe public QR & employer verification projection."
+    },
+    "/publicGraduates/{graduateId}": {
+      "schema": "PublicGraduateDirectoryDoc",
+      "description": "Consent-based public graduate directory (zero PII)."
+    },
+    "/publicArticles/{articleId}": {
+      "schema": "ResearchArticleDoc",
+      "description": "Open-access institutional scholarly press and journals."
+    }
+  }
+}
