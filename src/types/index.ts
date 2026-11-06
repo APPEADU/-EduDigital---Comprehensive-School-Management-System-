@@ -1080,3 +1080,4 @@ export interface BeceAiReadinessReport {
   }[];
 }
 
+export type { SchoolTenantData } from '../data/multiSchoolSeeds';

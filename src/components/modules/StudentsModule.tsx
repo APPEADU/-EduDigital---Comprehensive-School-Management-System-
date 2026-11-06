@@ -368,8 +368,25 @@ export const StudentsModule: React.FC = () => {
 
   const handleEnrollGradeChange = (gradeId: string) => {
     setEnrollValidationError(null);
-    const streams = activeStreams.filter((c) => c.gradeId === gradeId);
-    const firstStream = streams[0];
+    let streams = activeStreams.filter((c) => c.gradeId === gradeId);
+    let firstStream = streams[0];
+
+    // Proactively create Stream A if this grade has no streams yet
+    if (!firstStream && gradeId) {
+      const gradeObj = gradeClasses.find((g) => g.id === gradeId);
+      if (gradeObj) {
+        const autoRes = addClassStream({
+          gradeId,
+          streamDivision: 'A',
+          programme: gradeObj.isShs ? newStudent.programme || 'General Science' : undefined,
+        });
+        if (autoRes.success && autoRes.classRoom) {
+          firstStream = autoRes.classRoom;
+          streams = [autoRes.classRoom];
+        }
+      }
+    }
+
     const nextLetter = String.fromCharCode(65 + Math.min(streams.length, 7));
     setInlineStreamDivision(nextLetter);
     setNewStudent((prev) => ({
@@ -386,6 +403,27 @@ export const StudentsModule: React.FC = () => {
     setEnrollValidationError(null);
     if (classId === '__create_new_stream__') {
       setShowInlineStreamCreator(true);
+      return;
+    }
+    if (classId === '__auto_a__') {
+      const gradeObj = gradeClasses.find((g) => g.id === newStudent.gradeId);
+      if (gradeObj && newStudent.gradeId) {
+        const autoRes = addClassStream({
+          gradeId: newStudent.gradeId,
+          streamDivision: 'A',
+          programme: gradeObj.isShs ? newStudent.programme || 'General Science' : undefined,
+        });
+        if (autoRes.success && autoRes.classRoom) {
+          setNewStudent((prev) => ({
+            ...prev,
+            classId: autoRes.classRoom!.id,
+            stream: autoRes.classRoom!.stream,
+            classTeacherId: autoRes.classRoom!.formTutorTeacherId || prev.classTeacherId,
+            programme: autoRes.classRoom!.programme || prev.programme,
+          }));
+          return;
+        }
+      }
       return;
     }
     const streamObj = activeStreams.find((c) => c.id === classId);
@@ -1534,7 +1572,7 @@ export const StudentsModule: React.FC = () => {
                       {!newStudent.gradeId ? (
                         <option value="">Select Class / Grade first</option>
                       ) : enrollStreamsForGrade.length === 0 ? (
-                        <option value="">Stream A (Auto-created on Enrolment)</option>
+                        <option value="__auto_a__">Stream A (Default Stream)</option>
                       ) : (
                         <option value="">-- Select Stream / Division --</option>
                       )}

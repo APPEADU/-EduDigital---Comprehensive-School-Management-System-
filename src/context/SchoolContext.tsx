@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   SchoolProfile,
   UserAccount,
@@ -125,6 +125,17 @@ import {
   DEFAULT_PLATFORM_OWNER_PROFILE,
   upsertPlatformOwnerProfileInCloud,
 } from '../lib/firestoreSync';
+import {
+  fetchCloudSchools,
+  createCloudSchool,
+  fetchCloudTenantData,
+  saveCloudTenantData,
+  fetchCloudTenantMeta,
+  authenticateCloudUser,
+  resetCloudUserPassword,
+  migrateLocalSchoolsToCloud,
+  uploadAssetToCloud,
+} from '../lib/cloudStoreApi';
 
 const TENANT_STORAGE_PREFIX = 'edudigital_tenant_';
 const LEGACY_TENANT_STORAGE_PREFIX = 'edughana_tenant_';
@@ -389,7 +400,7 @@ interface SchoolContextType {
     password?: string,
     targetSchoolId?: string,
     loginMode?: 'staff' | 'student' | 'owner'
-  ) => { success: boolean; isPlatformAdmin?: boolean; message?: string };
+  ) => Promise<{ success: boolean; isPlatformAdmin?: boolean; message?: string }>;
   logout: () => void;
   updateUser: (userId: string, data: Partial<UserAccount>) => void;
   updateCurrentUserAvatar: (newAvatar: string) => void;
@@ -462,11 +473,12 @@ interface SchoolContextType {
     verificationInput?: string;
     newPassword: string;
     bypassVerification?: boolean;
-  }) => { success: boolean; message: string; updatedEmail?: string; updatedRoleLabel?: string };
+  }) => Promise<{ success: boolean; message: string; updatedEmail?: string; updatedRoleLabel?: string }>;
   changeCurrentUserPassword: (
     currentPassword: string,
     newPassword: string
   ) => { success: boolean; message: string };
+  uploadPhotoOrCrest: (dataUrl: string, fileName?: string) => Promise<string>;
 
   // Custom School Courses / Programmes & Custom Subjects (Apart from Automatic Defaults)
   courseTracks: SchoolCourseTrack[];
@@ -1149,6 +1161,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeModule, setActiveModule] = useState<string>('dashboard');
   const [publicNetworkRevision, setPublicNetworkRevision] = useState(0);
 
+  const localTenantVersionRef = useRef<number>(1);
+  const cloudSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const getEffectiveSchoolOwnerUid = (targetSchoolId = activeSchoolId): string | undefined => {
     if (school.id === targetSchoolId && school.ownerUid) return school.ownerUid;
     return schools.find((s) => s.id === targetSchoolId)?.ownerUid;
@@ -1191,81 +1206,102 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  // Boot fetch of public cloud registries (institutions, public QR verification credentials, graduates, journals)
+  // Boot fetch of Central Cloud Database (Institutions, Multi-Device Cloud Records & Safe Migration)
   useEffect(() => {
     let cancelled = false;
-    fetchPublicCloudRegistry()
-      .then((registry) => {
+
+    async function initializeCloudStorage() {
+      // 1. Fetch from Central Cloud Database API
+      try {
+        const cloudSchools = await fetchCloudSchools();
+        if (!cancelled && cloudSchools && cloudSchools.length > 0) {
+          const valid = cloudSchools.filter((s) => !isRemovedSampleSchoolId(s.id));
+          setSchools((prev) =>
+            mergeById(
+              prev.filter((s) => s.id !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(s.id)),
+              valid
+            )
+          );
+        }
+      } catch (err) {
+        console.warn('Central cloud schools boot query notice:', err);
+      }
+
+      // 2. Safe local-to-cloud migration: transfer any local records from this browser to cloud database
+      try {
+        const rawLocalSchools =
+          localStorage.getItem(SCHOOLS_STORAGE_KEY) ??
+          localStorage.getItem(LEGACY_SCHOOLS_STORAGE_KEY);
+        if (rawLocalSchools) {
+          const parsedSchools: SchoolProfile[] = JSON.parse(rawLocalSchools);
+          if (Array.isArray(parsedSchools) && parsedSchools.length > 0) {
+            const tenantsMap: Record<string, SchoolTenantData> = {};
+            for (const s of parsedSchools) {
+              const rawTenant =
+                localStorage.getItem(TENANT_STORAGE_PREFIX + s.id) ??
+                localStorage.getItem(LEGACY_TENANT_STORAGE_PREFIX + s.id);
+              if (rawTenant) {
+                try {
+                  tenantsMap[s.id] = JSON.parse(rawTenant);
+                } catch {
+                  // Ignore
+                }
+              }
+            }
+            await migrateLocalSchoolsToCloud(parsedSchools, tenantsMap);
+          }
+        }
+      } catch (migErr) {
+        console.warn('Cloud safe migration check notice:', migErr);
+      }
+
+      // 3. Query Firestore public cloud registries
+      try {
+        const registry = await fetchPublicCloudRegistry();
         if (cancelled) return;
         const validCloudSchools = registry.schools.filter((s) => !isRemovedSampleSchoolId(s.id));
         if (validCloudSchools.length > 0) {
-          setSchools((prev) => {
-            const merged = mergeById(
+          setSchools((prev) =>
+            mergeById(
               prev.filter((s) => s.id !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(s.id)),
               validCloudSchools
-            );
-            return merged;
-          });
-          setActiveSchoolId((prevId) => {
-            if (!prevId || prevId === EMPTY_SCHOOL_ID || isRemovedSampleSchoolId(prevId)) {
-              const firstCloud = validCloudSchools[0];
-              let storedForFirst: SchoolTenantData | null = null;
-              try {
-                const raw =
-                  localStorage.getItem(TENANT_STORAGE_PREFIX + firstCloud.id) ??
-                  localStorage.getItem(LEGACY_TENANT_STORAGE_PREFIX + firstCloud.id);
-                if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (parsed && parsed.school && parsed.school.id === firstCloud.id) {
-                    storedForFirst = parsed;
-                  }
-                }
-              } catch {
-                // Ignore storage parse error
-              }
-              const baseTenant = storedForFirst || getInitialTenantData(firstCloud.id);
-              const hydratedCloud = hydrateProfessionalFields(firstCloud.id, {
-                ...baseTenant,
-                school: {
-                  ...baseTenant.school,
-                  ...firstCloud,
-                  signatories: firstCloud.signatories || baseTenant.school?.signatories || getDefaultSignatoriesForSchool(firstCloud),
-                },
-              });
-              setSchool(hydratedCloud.school);
-              setEducationalSections(hydratedCloud.educationalSections || []);
-              setGradeClasses(hydratedCloud.gradeClasses || []);
-              setClasses(hydratedCloud.classes);
-              setSubjects(hydratedCloud.subjects);
-              if (hydratedCloud.users.length > 0) {
-                setUsers(hydratedCloud.users);
-              }
-              return firstCloud.id;
-            }
-            const activeCloud = validCloudSchools.find((s) => s.id === prevId);
-            if (activeCloud) {
-              setSchool((prevSch) => ({ ...prevSch, ...activeCloud, signatories: prevSch.signatories }));
-            }
-            return prevId;
-          });
+            )
+          );
         }
         if (registry.ownerProfile) {
           setPlatformOwnerProfile(registry.ownerProfile);
-          try {
-            localStorage.setItem(PLATFORM_OWNER_PROFILE_KEY, JSON.stringify(registry.ownerProfile));
-          } catch {
-            // Ignore storage quota issues
-          }
         }
         setCloudPublicCreds(registry.publicCreds);
         setCloudPublicGraduates(registry.publicGraduates);
         setCloudPublicArticles(registry.publicArticles);
         setPublicNetworkRevision((r) => r + 1);
-      })
-      .catch((err) => {
-        if (cancelled || isBenignAbortError(err) || isTransientOfflineOrTokenError(err)) return;
-        console.error('Initial public cloud registry sync error:', err);
-      });
+      } catch (err) {
+        if (!cancelled && !isBenignAbortError(err) && !isTransientOfflineOrTokenError(err)) {
+          console.warn('Initial public cloud registry sync notice:', err);
+        }
+      }
+
+      // 4. Hydrate active school tenant data from Central Cloud Database
+      const currentActiveId =
+        activeSchoolId && activeSchoolId !== EMPTY_SCHOOL_ID
+          ? activeSchoolId
+          : localStorage.getItem(ACTIVE_SCHOOL_KEY);
+
+      if (currentActiveId && currentActiveId !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(currentActiveId)) {
+        try {
+          const cloudTenantRes = await fetchCloudTenantData(currentActiveId);
+          if (!cancelled && cloudTenantRes && cloudTenantRes.tenant) {
+            localTenantVersionRef.current = cloudTenantRes.version;
+            const matchingSchool = schools.find((s) => s.id === currentActiveId) || cloudTenantRes.tenant.school;
+            applyTenantState(currentActiveId, cloudTenantRes.tenant, matchingSchool);
+          }
+        } catch (tenantErr) {
+          console.warn('Initial cloud tenant load notice:', tenantErr);
+        }
+      }
+    }
+
+    initializeCloudStorage();
     return () => {
       cancelled = true;
     };
@@ -1481,9 +1517,30 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const currentTenantData = buildCurrentTenantSnapshot();
       localStorage.setItem(TENANT_STORAGE_PREFIX + activeSchoolId, JSON.stringify(currentTenantData));
       localStorage.setItem(ACTIVE_SCHOOL_KEY, activeSchoolId);
+
+      // Debounced background sync to Central Cloud Database & Firestore
+      if (cloudSyncTimeoutRef.current) {
+        clearTimeout(cloudSyncTimeoutRef.current);
+      }
+      cloudSyncTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await saveCloudTenantData(activeSchoolId, currentTenantData);
+          if (res?.version) {
+            localTenantVersionRef.current = res.version;
+          }
+        } catch (syncErr) {
+          console.warn('Central cloud tenant sync notice:', syncErr);
+        }
+      }, 900);
     } catch (e) {
       console.error('Failed to sync tenant data to localStorage', e);
     }
+
+    return () => {
+      if (cloudSyncTimeoutRef.current) {
+        clearTimeout(cloudSyncTimeoutRef.current);
+      }
+    };
   }, [
     activeSchoolId,
     schools,
@@ -1625,7 +1682,52 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (e) {
       console.error('Failed to write target school to localStorage', e);
     }
+
+    // Cross-device cloud sync: fetch fresh remote state from cloud database
+    fetchCloudTenantData(targetSchoolId)
+      .then((cloudTenantRes) => {
+        if (cloudTenantRes && cloudTenantRes.tenant) {
+          localTenantVersionRef.current = cloudTenantRes.version;
+          const refreshedSchool: SchoolProfile = {
+            ...targetSchoolProfile,
+            ...cloudTenantRes.tenant.school,
+            id: targetSchoolId,
+          };
+          applyTenantState(targetSchoolId, cloudTenantRes.tenant, refreshedSchool);
+        }
+      })
+      .catch((e) => console.warn('Notice hydrating cloud tenant on switch:', e));
   };
+
+  // Cross-Device Real-Time Synchronisation Poller
+  useEffect(() => {
+    if (!activeSchoolId || activeSchoolId === EMPTY_SCHOOL_ID || isRemovedSampleSchoolId(activeSchoolId)) {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const meta = await fetchCloudTenantMeta(activeSchoolId);
+        if (meta && meta.version && localTenantVersionRef.current) {
+          if (meta.version > localTenantVersionRef.current) {
+            const remoteTenantRes = await fetchCloudTenantData(activeSchoolId);
+            if (remoteTenantRes && remoteTenantRes.tenant) {
+              localTenantVersionRef.current = remoteTenantRes.version;
+              const safeSchool: SchoolProfile = {
+                ...remoteTenantRes.tenant.school,
+                id: activeSchoolId,
+              };
+              applyTenantState(activeSchoolId, remoteTenantRes.tenant, safeSchool);
+            }
+          }
+        }
+      } catch (err) {
+        // Silently skip transient poller errors
+      }
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [activeSchoolId]);
 
   const registerSchool = (
     schoolData: Omit<SchoolProfile, 'id'>,
@@ -1936,6 +2038,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentUserState(newAdmin);
     setIsAuthenticated(true);
     setActiveModule(initialMod);
+
+    // Persist permanently to central cloud database
+    createCloudSchool({
+      school: newSchool,
+      adminUser: newAdmin,
+      tenantData: newTenantData,
+      initialPassword: adminCredentials.password,
+    }).catch((err) => console.warn('Cloud store school creation notice:', err));
+    saveCloudTenantData(newSchoolId, newTenantData).catch((err) =>
+      console.warn('Cloud store tenant save notice:', err)
+    );
 
     if (auth.currentUser?.emailVerified) {
       const uid = auth.currentUser.uid;
@@ -3504,12 +3617,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return { success: true, isPlatformAdmin: true };
   };
 
-  const loginWithEmail = (
+  const loginWithEmail = async (
     identifier: string,
     password?: string,
     targetSchoolId?: string,
     loginMode?: 'staff' | 'student' | 'owner'
-  ): { success: boolean; isPlatformAdmin?: boolean; message?: string } => {
+  ): Promise<{ success: boolean; isPlatformAdmin?: boolean; message?: string }> => {
     const trimmed = identifier.trim();
     if (!trimmed) {
       return {
@@ -3526,14 +3639,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (loginMode !== 'student' && trimmed.toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL.toLowerCase())
     ) {
       return signInPlatformOwnerWithEmail(trimmed, password, { targetSchoolId });
-    }
-
-    if (schools.length === 0) {
-      return {
-        success: false,
-        message:
-          'No schools or institutes have been registered yet. Sign in as the Platform Owner with your email or Google account to register your first institution.',
-      };
     }
 
     const checkPassword = (account: UserAccount) => {
@@ -3575,7 +3680,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: true };
     }
 
-    // 3. Check other registered schools
+    // 3. Check other locally loaded registered schools
     for (const otherSchool of schools) {
       if (otherSchool.id === activeSchoolId) continue;
       const otherTenant = loadTenantData(otherSchool.id);
@@ -3592,6 +3697,40 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    // 4. Central Cloud Database (Multi-Device Shared Authentication)
+    try {
+      const cloudAuth = await authenticateCloudUser({
+        identifier: trimmed,
+        password,
+        targetSchoolId,
+      });
+
+      if (cloudAuth.success && cloudAuth.user && cloudAuth.schoolId) {
+        const cloudSid = cloudAuth.schoolId;
+        if (cloudAuth.school && !schools.some((s) => s.id === cloudSid)) {
+          setSchools((prev) => [...prev, cloudAuth.school!]);
+        }
+        switchSchool(cloudSid);
+        setCurrentUserState(cloudAuth.user);
+        setIsAuthenticated(true);
+        setActiveModule(
+          getLandingModuleForUser(
+            cloudAuth.user,
+            cloudAuth.school?.levelType || school.levelType
+          )
+        );
+        return { success: true, isPlatformAdmin: cloudAuth.user.role === 'admin' };
+      } else if (
+        cloudAuth.message &&
+        !cloudAuth.success &&
+        !cloudAuth.message.includes('not found')
+      ) {
+        return { success: false, message: cloudAuth.message };
+      }
+    } catch (e) {
+      console.warn('Notice querying central cloud authentication:', e);
+    }
+
     return {
       success: false,
       message:
@@ -3601,14 +3740,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const hasPlatformOwnerPassword = Boolean(ownerSavedPassword && ownerSavedPassword.trim().length > 0);
 
-  const resetAccountPassword = (params: {
+  const resetAccountPassword = async (params: {
     mode: 'owner' | 'portal';
     schoolId?: string;
     identifier: string;
     verificationInput?: string;
     newPassword: string;
     bypassVerification?: boolean;
-  }): { success: boolean; message: string; updatedEmail?: string; updatedRoleLabel?: string } => {
+  }): Promise<{ success: boolean; message: string; updatedEmail?: string; updatedRoleLabel?: string }> => {
     const cleanId = params.identifier.trim();
     const cleanNewPass = params.newPassword.trim();
     const verifRaw = (params.verificationInput || '').trim();
@@ -3690,6 +3829,11 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (currentUser.email.toLowerCase() === ownerEmailLower) {
         setCurrentUserState((prev) => ({ ...prev, password: cleanNewPass }));
       }
+
+      resetCloudUserPassword({
+        identifier: BOOTSTRAPPED_ADMIN_EMAIL,
+        newPassword: cleanNewPass,
+      }).catch((err) => console.warn('Cloud owner password sync notice:', err));
 
       return {
         success: true,
@@ -3864,6 +4008,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    resetCloudUserPassword({
+      identifier: updatedAccount.email || cleanId,
+      schoolId: foundSchoolId,
+      newPassword: cleanNewPass,
+    }).catch((err) => console.warn('Central cloud password sync notice:', err));
+
     return {
       success: true,
       message: `Password reset complete for ${updatedAccount.name} (${foundTenant.school.name}). You may now sign in with your new password.`,
@@ -3962,6 +4112,21 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       success: true,
       message: 'Your account password has been updated.',
     };
+  };
+
+  const uploadPhotoOrCrest = async (dataUrl: string, fileName?: string): Promise<string> => {
+    if (!dataUrl || !dataUrl.startsWith('data:')) {
+      return dataUrl;
+    }
+    try {
+      const res = await uploadAssetToCloud(dataUrl, fileName);
+      if (res.success && res.url) {
+        return res.url;
+      }
+    } catch (e) {
+      console.warn('Failed to upload asset to cloud, retaining data URL:', e);
+    }
+    return dataUrl;
   };
 
   const enterPortalAsPlatformOwner = (targetSchoolId?: string): boolean => {
@@ -6540,6 +6705,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         hasPlatformOwnerPassword,
         resetAccountPassword,
         changeCurrentUserPassword,
+        uploadPhotoOrCrest,
         courseTracks,
         addCourseTrack,
         addCourseTracksBulk,

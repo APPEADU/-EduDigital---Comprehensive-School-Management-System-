@@ -633,9 +633,9 @@ export function ensureStreamsForActiveGrades(
 
   const activeSecIds = new Set(sections.filter((s) => s.active).map((s) => s.id));
   const missingGrades = grades.filter((g) => {
-    if (!g.active || !activeSecIds.has(g.sectionId)) return false;
+    if (!g.active) return false;
     const hasActiveStream = normalizedExisting.some(
-      (c) => c.gradeId === g.id && c.active !== false
+      (c) => (c.gradeId === g.id || c.name.toLowerCase().includes(g.name.toLowerCase())) && c.active !== false
     );
     return !hasActiveStream;
   });

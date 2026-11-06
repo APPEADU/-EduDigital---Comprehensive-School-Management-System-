@@ -65,6 +65,7 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     text: string;
     resolvedEmail?: string;
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -95,7 +96,7 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
 
@@ -115,57 +116,62 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
       return;
     }
 
-    // 1. Authenticated user changing their own password
-    if (flowMode === 'change-current') {
-      const res = changeCurrentUserPassword(currentPassword, newPassword);
-      setFeedback({
-        type: res.success ? 'success' : 'error',
-        text: res.message,
-        resolvedEmail: currentUser.email,
-      });
-      if (res.success) {
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
+    setIsSubmitting(true);
+    try {
+      // 1. Authenticated user changing their own password
+      if (flowMode === 'change-current') {
+        const res = changeCurrentUserPassword(currentPassword, newPassword);
+        setFeedback({
+          type: res.success ? 'success' : 'error',
+          text: res.message,
+          resolvedEmail: currentUser.email,
+        });
+        if (res.success) {
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+        }
+        return;
       }
-      return;
-    }
 
-    // 2. Authorized Admin / Proprietor / Platform Owner resetting a specific user's password
-    if (flowMode === 'admin-override') {
-      const isOwnerTarget = identifier.trim().toLowerCase() === platformOwnerEmail.toLowerCase();
-      const res = resetAccountPassword({
-        mode: isOwnerTarget ? 'owner' : 'portal',
-        schoolId: selectedSchoolId,
+      // 2. Authorized Admin / Proprietor / Platform Owner resetting a specific user's password
+      if (flowMode === 'admin-override') {
+        const isOwnerTarget = identifier.trim().toLowerCase() === platformOwnerEmail.toLowerCase();
+        const res = await resetAccountPassword({
+          mode: isOwnerTarget ? 'owner' : 'portal',
+          schoolId: selectedSchoolId,
+          identifier,
+          newPassword,
+          bypassVerification: true,
+        });
+        setFeedback({
+          type: res.success ? 'success' : 'error',
+          text: res.message,
+          resolvedEmail: res.updatedEmail,
+        });
+        if (res.success && onResetComplete) {
+          onResetComplete(res.updatedEmail || identifier, isOwnerTarget ? 'owner' : 'staff', newPassword.trim());
+        }
+        return;
+      }
+
+      // 3. Self-service password reset from Login Screen
+      const res = await resetAccountPassword({
+        mode: roleTab === 'owner' ? 'owner' : 'portal',
+        schoolId: roleTab === 'owner' ? undefined : selectedSchoolId,
         identifier,
+        verificationInput,
         newPassword,
-        bypassVerification: true,
       });
+
       setFeedback({
         type: res.success ? 'success' : 'error',
         text: res.message,
         resolvedEmail: res.updatedEmail,
       });
-      if (res.success && onResetComplete) {
-        onResetComplete(res.updatedEmail || identifier, isOwnerTarget ? 'owner' : 'staff', newPassword.trim());
-      }
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // 3. Self-service password reset from Login Screen
-    const res = resetAccountPassword({
-      mode: roleTab === 'owner' ? 'owner' : 'portal',
-      schoolId: roleTab === 'owner' ? undefined : selectedSchoolId,
-      identifier,
-      verificationInput,
-      newPassword,
-    });
-
-    setFeedback({
-      type: res.success ? 'success' : 'error',
-      text: res.message,
-      resolvedEmail: res.updatedEmail,
-    });
   };
 
   const isOwnerLoggedInChanging =

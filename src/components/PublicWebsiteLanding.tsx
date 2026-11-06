@@ -1618,7 +1618,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                 {platformOwnerProfile.bio}
               </p>
 
-              <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center gap-4">
+              <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center gap-3 sm:gap-4">
                 <a
                   href={buildWhatsAppUrl(
                     effectiveOwnerWhatsAppRaw,
@@ -1626,18 +1626,16 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-slate-950 text-xs sm:text-sm font-bold transition whitespace-nowrap shadow-lg"
+                  title={`Contact Owner on WhatsApp (${formattedOwnerWhatsApp})`}
+                  aria-label={`Contact Owner on WhatsApp (${formattedOwnerWhatsApp})`}
+                  className="w-12 h-12 rounded-full bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 text-white shadow-md shadow-[#25D366]/25 ring-2 ring-white/20 flex items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer shrink-0"
                 >
-                  <WhatsAppLogoIcon className="w-5 h-5 shrink-0" />
-                  <span className="tabular-nums">
-                    Contact the Owner on WhatsApp — {formattedOwnerWhatsApp}
-                  </span>
-                  <ExternalLink className="w-4 h-4 shrink-0" />
+                  <WhatsAppLogoIcon className="w-6 h-6" />
                 </a>
 
                 <a
                   href="#enquiries"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition whitespace-nowrap"
                 >
                   <span>Request Institutional Onboarding</span>
                   <ArrowRight className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -1647,7 +1645,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                   <button
                     type="button"
                     onClick={() => handleOpenPortalAction('owner')}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
                   >
                     <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>Owner Portal Sign-In</span>
@@ -1681,23 +1679,19 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               </p>
             </div>
 
-            {/* Direct WhatsApp Desk */}
-            <div className="bg-gradient-to-br from-emerald-950/75 via-slate-900/95 to-teal-950/70 border border-emerald-500/35 rounded-2xl p-6 space-y-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-[#25D366]/20 border border-[#25D366]/45 flex items-center justify-center text-[#25D366] shrink-0">
-                  <WhatsAppLogoIcon className="w-6 h-6" />
+            {/* Direct WhatsApp Quick Contact (Compact Rounded Style) */}
+            <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900/90 to-teal-950/50 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-[#25D366]/20 border border-[#25D366]/40 flex items-center justify-center text-[#25D366] shrink-0">
+                  <WhatsAppLogoIcon className="w-5 h-5" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-white">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white">
                     Direct WhatsApp Registration &amp; Support
-                  </h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Message the Platform Owner directly for immediate institutional onboarding,
-                    demo scheduling, or bespoke module enquiries:
-                  </p>
-                  <p className="text-sm font-mono font-bold text-[#25D366] tabular-nums">
+                  </div>
+                  <div className="text-xs font-mono font-bold text-[#25D366] tabular-nums">
                     {formattedOwnerWhatsApp}
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -1705,11 +1699,11 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                 href={buildWhatsAppUrl(effectiveOwnerWhatsAppRaw, enquiryWhatsAppPrefill)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition whitespace-nowrap shadow-md"
+                title={`Chat on WhatsApp (${formattedOwnerWhatsApp})`}
+                aria-label={`Chat on WhatsApp (${formattedOwnerWhatsApp})`}
+                className="w-11 h-11 rounded-full bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 text-white shadow-md shadow-[#25D366]/25 ring-2 ring-white/20 flex items-center justify-center transition-all hover:scale-105 cursor-pointer shrink-0"
               >
-                <WhatsAppLogoIcon className="w-4 h-4 shrink-0" />
-                <span className="tabular-nums">Chat on WhatsApp ({formattedOwnerWhatsApp})</span>
-                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                <WhatsAppLogoIcon className="w-5 h-5" />
               </a>
             </div>
 

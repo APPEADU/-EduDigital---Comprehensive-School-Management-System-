@@ -108,15 +108,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setErrorMessage(null);
   };
 
-  const handleOwnerEmailSubmit = (e: React.FormEvent) => {
+  const handleOwnerEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) {
       setErrorMessage('Please enter your Platform Owner email address.');
       return;
     }
-    const res = signInPlatformOwnerWithEmail(identifier, password, {
-      targetSchoolId: selectedSchoolId,
-    });
+    const res = await loginWithEmail(identifier, password, selectedSchoolId, 'owner');
     if (!res.success) {
       setErrorMessage(res.message || 'Platform Owner authentication failed.');
       return;
@@ -127,10 +125,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loginMode === 'owner') {
-      handleOwnerEmailSubmit(e);
+      await handleOwnerEmailSubmit(e);
       return;
     }
     if (!identifier.trim()) {
@@ -141,7 +139,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       );
       return;
     }
-    const result = loginWithEmail(identifier, password, selectedSchoolId, loginMode);
+    const result = await loginWithEmail(identifier, password, selectedSchoolId, loginMode);
     if (!result.success) {
       setErrorMessage(result.message || 'Authentication failed. Please check your credentials.');
     }

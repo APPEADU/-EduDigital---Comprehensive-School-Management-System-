@@ -259,7 +259,7 @@ export const AdmissionsModule: React.FC = () => {
     }
 
     let resolvedClassId = formData.applyingForClassId;
-    if (!resolvedClassId) {
+    if (!resolvedClassId || resolvedClassId === '__auto_a__') {
       const existingStream = activeStreams.find((c) => c.gradeId === formData.gradeId);
       if (existingStream) {
         resolvedClassId = existingStream.id;
@@ -272,13 +272,10 @@ export const AdmissionsModule: React.FC = () => {
         });
         if (createdRes.success && createdRes.classRoom) {
           resolvedClassId = createdRes.classRoom.id;
+        } else {
+          resolvedClassId = classes.find((c) => c.gradeId === formData.gradeId)?.id || classes[0]?.id;
         }
       }
-    }
-
-    if (!resolvedClassId) {
-      setApplyError('Please select or create a Stream / Division belonging to the selected Class.');
-      return;
     }
 
     // Check duplicate against enrolled students in this institution & academic year

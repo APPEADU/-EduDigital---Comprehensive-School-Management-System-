@@ -7,6 +7,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { GoogleGenAI } from '@google/genai';
 
+import crypto from 'crypto';
+import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,10 +18,704 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
+
+// Static uploads directory for permanent cloud asset storage (photographs, crests, documents)
+const UPLOADS_DIR = path.resolve(__dirname, 'public', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Persistent server data directory for multi-device institutional cloud storage
+const DATA_DIR = path.resolve(__dirname, 'data');
+const TENANTS_DIR = path.resolve(DATA_DIR, 'tenants');
+const CLOUD_SCHOOLS_FILE = path.resolve(DATA_DIR, 'cloud_schools.json');
+const CLOUD_ACCOUNTS_FILE = path.resolve(DATA_DIR, 'cloud_accounts.json');
+
+if (!fs.existsSync(TENANTS_DIR)) {
+  fs.mkdirSync(TENANTS_DIR, { recursive: true });
+}
+
+// Password hashing helper — never store plain-text passwords
+const HASH_SALT = 'edudigital_sis_secure_salt_2026';
+function hashPassword(plain: string): string {
+  if (!plain) return '';
+  return crypto.createHash('sha256').update(plain + HASH_SALT).digest('hex');
+}
+
+function verifyPassword(plain: string, hashedOrPlain: string): boolean {
+  if (!hashedOrPlain) return false;
+  // If stored value is already a 64-char hex sha256 hash
+  if (/^[a-f0-9]{64}$/i.test(hashedOrPlain)) {
+    return hashPassword(plain) === hashedOrPlain;
+  }
+  // Fallback for legacy unhashed passwords: verify and allow
+  return plain === hashedOrPlain;
+}
+
+// In-memory + Disk persistence helpers
+function loadCloudSchools(): any[] {
+  try {
+    if (fs.existsSync(CLOUD_SCHOOLS_FILE)) {
+      const raw = fs.readFileSync(CLOUD_SCHOOLS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading cloud_schools.json:', err);
+  }
+  return [];
+}
+
+function saveCloudSchools(schools: any[]) {
+  try {
+    fs.writeFileSync(CLOUD_SCHOOLS_FILE, JSON.stringify(schools, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing cloud_schools.json:', err);
+  }
+}
+
+function loadCloudAccounts(): any[] {
+  try {
+    if (fs.existsSync(CLOUD_ACCOUNTS_FILE)) {
+      const raw = fs.readFileSync(CLOUD_ACCOUNTS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading cloud_accounts.json:', err);
+  }
+  return [];
+}
+
+function saveCloudAccounts(accounts: any[]) {
+  try {
+    fs.writeFileSync(CLOUD_ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing cloud_accounts.json:', err);
+  }
+}
+
+function loadTenantData(schoolId: string): any | null {
+  try {
+    const filePath = path.resolve(TENANTS_DIR, `${schoolId}.json`);
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error(`Error reading tenant data for ${schoolId}:`, err);
+  }
+  return null;
+}
+
+function saveTenantData(schoolId: string, tenantData: any) {
+  try {
+    const filePath = path.resolve(TENANTS_DIR, `${schoolId}.json`);
+    const wrapped = {
+      ...tenantData,
+      lastModified: new Date().toISOString(),
+      version: ((tenantData.version || 0) + 1),
+    };
+    fs.writeFileSync(filePath, JSON.stringify(wrapped, null, 2), 'utf-8');
+    return wrapped;
+  } catch (err) {
+    console.error(`Error writing tenant data for ${schoolId}:`, err);
+    throw err;
+  }
+}
+
+// Background asynchronous synchronization to Firestore REST API where applicable
+async function syncSchoolToFirestore(school: any) {
+  try {
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/schools/${school.id}?key=${firebaseConfig.apiKey}`;
+    const fields: Record<string, any> = {
+      id: { stringValue: school.id },
+      name: { stringValue: school.name || 'School' },
+      code: { stringValue: school.code || 'SCH' },
+      motto: { stringValue: school.motto || '' },
+      crest: { stringValue: school.crest || '' },
+      levelType: { stringValue: school.levelType || 'Basic & JHS' },
+      region: { stringValue: school.region || 'Greater Accra' },
+      district: { stringValue: school.district || 'Metropolitan' },
+      address: { stringValue: school.address || '' },
+      officialPhone: { stringValue: school.phone || school.officialPhone || '+233000000000' },
+      officialEmail: { stringValue: school.email || school.officialEmail || 'admin@school.edu.gh' },
+      currency: { stringValue: school.currency || 'GH₵' },
+      currentAcademicYear: { stringValue: school.currentAcademicYear || '2025/2026' },
+      currentTerm: { stringValue: school.currentTerm || 'Term 1' },
+      termStartDate: { stringValue: school.termStartDate || '2025-09-15' },
+      termEndDate: { stringValue: school.termEndDate || '2025-12-19' },
+      nextTermBegins: { stringValue: school.nextTermBegins || '2026-01-14' },
+      headmasterName: { stringValue: school.headmasterName || 'Principal' },
+      headmasterSignature: { stringValue: school.headmasterSignature || 'Principal' },
+      isPublic: { booleanValue: true },
+      enabledModules: {
+        arrayValue: {
+          values: (school.enabledModules || []).map((m: string) => ({ stringValue: m })),
+        },
+      },
+      ownerUid: { stringValue: school.ownerUid || 'platform-owner-system' },
+      updatedByUid: { stringValue: school.ownerUid || 'platform-owner-system' },
+      createdAt: { timestampValue: new Date().toISOString() },
+      updatedAt: { timestampValue: new Date().toISOString() },
+    };
+    if (school.whatsappNumber) {
+      fields.whatsappNumber = { stringValue: school.whatsappNumber };
+    }
+    if (typeof school.whatsappEnabled === 'boolean') {
+      fields.whatsappEnabled = { booleanValue: school.whatsappEnabled };
+    }
+
+    await fetch(firestoreUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    }).catch(() => {});
+  } catch {
+    // Non-blocking firestore sync
+  }
+}
+
+// ============================================================================
+// CENTRAL CLOUD DATABASE ENDPOINTS (/api/cloud/*)
+// ============================================================================
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+app.get('/api/cloud/health', (_req: Request, res: Response) => {
+  const schools = loadCloudSchools();
+  res.json({
+    status: 'ok',
+    centralDatabase: 'active',
+    registeredSchoolsCount: schools.length,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// 1. Retrieve all registered institutions from central cloud database
+app.get('/api/cloud/schools', (_req: Request, res: Response) => {
+  try {
+    const schools = loadCloudSchools();
+    res.json({
+      success: true,
+      schools,
+      totalCount: schools.length,
+      source: 'cloud',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, schools: [] });
+  }
+});
+
+// 2. Onboard and permanently register a new school in the cloud database
+app.post('/api/cloud/schools', async (req: Request, res: Response) => {
+  try {
+    const { school, adminCredentials, curriculumOptions, tenantData } = req.body;
+    if (!school || !school.name || !school.code) {
+      return res.status(400).json({ success: false, message: 'Invalid school registration payload.' });
+    }
+
+    const schoolId = school.id || `sch-${Date.now()}`;
+    const cleanSchool = {
+      ...school,
+      id: schoolId,
+      ownerUid: school.ownerUid || 'platform-owner-system',
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save/update school in cloud_schools.json
+    const existingSchools = loadCloudSchools();
+    const existingIndex = existingSchools.findIndex((s: any) => s.id === schoolId || s.code === cleanSchool.code);
+    let updatedSchools: any[];
+    if (existingIndex >= 0) {
+      updatedSchools = [...existingSchools];
+      updatedSchools[existingIndex] = { ...existingSchools[existingIndex], ...cleanSchool };
+    } else {
+      updatedSchools = [...existingSchools, cleanSchool];
+    }
+    saveCloudSchools(updatedSchools);
+
+    // Save initial school admin user account with hashed password
+    const adminId = `usr-admin-${Date.now()}`;
+    const rawPass = (adminCredentials && adminCredentials.password) ? adminCredentials.password.trim() : 'admin123';
+    const hashedPass = hashPassword(rawPass);
+
+    const adminUser = {
+      id: adminId,
+      name: adminCredentials?.name || 'School Administrator',
+      email: (adminCredentials?.email || `admin@${cleanSchool.code.toLowerCase()}.edu.gh`).trim().toLowerCase(),
+      role: adminCredentials?.role || 'proprietor',
+      title: adminCredentials?.title || 'Headmaster & Super Administrator',
+      schoolId,
+      password: hashedPass,
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Update global cloud accounts
+    const existingAccounts = loadCloudAccounts();
+    const accountIndex = existingAccounts.findIndex(
+      (a: any) => a.schoolId === schoolId && a.email.toLowerCase() === adminUser.email.toLowerCase()
+    );
+    if (accountIndex >= 0) {
+      existingAccounts[accountIndex] = adminUser;
+    } else {
+      existingAccounts.push(adminUser);
+    }
+    saveCloudAccounts(existingAccounts);
+
+    // Persist complete initial tenant data in tenants/{schoolId}.json
+    const baseTenant = tenantData || {
+      school: cleanSchool,
+      users: [adminUser],
+      students: [],
+      classes: [],
+      educationalSections: [],
+      gradeClasses: [],
+      subjects: [],
+      admissions: [],
+      examResults: [],
+      feeItems: [
+        { id: `fee-${schoolId}-1`, name: 'Tuition & Registration Fee', amount: 1850, term: cleanSchool.currentTerm, classLevel: 'All' },
+      ],
+      feePayments: [],
+      transactions: [],
+      staff: [],
+      staffAttendance: [],
+      timetable: [],
+      attendance: [],
+      libraryBooks: [],
+      bookLoans: [],
+      assets: [],
+      routes: [],
+      boardingHouses: [],
+      healthRecords: [],
+      announcements: [],
+      researchArticles: [],
+      programmes: [],
+      programmeCourses: [],
+      candidates: [],
+      candidateAssessments: [],
+      certificateTemplates: [],
+      issuedCredentials: [],
+      graduateRecords: [],
+      replacementRequests: [],
+      accreditations: [],
+      verificationLogs: [],
+      biometricGateLogs: [],
+      photoChangeRequests: [],
+      beceMockSeries: [],
+      beceMockScores: [],
+      beceInterventions: [],
+      beceAiReports: [],
+    };
+
+    // Ensure admin user inside tenantData also has hashed password
+    baseTenant.users = [
+      adminUser,
+      ...(baseTenant.users || []).filter((u: any) => u.email.toLowerCase() !== adminUser.email.toLowerCase()),
+    ];
+
+    saveTenantData(schoolId, baseTenant);
+
+    // Background sync to Firestore REST API
+    syncSchoolToFirestore(cleanSchool);
+
+    res.json({
+      success: true,
+      school: cleanSchool,
+      admin: {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+        title: adminUser.title,
+        schoolId: adminUser.schoolId,
+        avatar: adminUser.avatar,
+      },
+      message: `Institution ${cleanSchool.name} registered and saved permanently to the central cloud database.`,
+    });
+  } catch (err: any) {
+    console.error('Error creating cloud school:', err);
+    res.status(500).json({ success: false, message: err.message || 'School creation failed.' });
+  }
+});
+
+// 3. Fetch institutional tenant data (students, classes, streams, teachers, exams, fees, etc.)
+app.get('/api/cloud/tenant/:schoolId', (req: Request, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'Missing school ID' });
+    }
+
+    const tenant = loadTenantData(schoolId);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: `No tenant records found for institution ${schoolId}` });
+    }
+
+    // Sanitize user passwords before sending to client
+    const sanitizedUsers = (tenant.users || []).map((u: any) => ({
+      ...u,
+      hasPassword: Boolean(u.password && u.password.trim().length > 0),
+      password: '', // Never return password hashes in general read requests
+    }));
+
+    res.json({
+      success: true,
+      tenant: {
+        ...tenant,
+        users: sanitizedUsers,
+      },
+      version: tenant.version || 1,
+      lastModified: tenant.lastModified || new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Save/update institutional tenant data (enrolment, exam marks, attendance, fees, classes, streams)
+app.post('/api/cloud/tenant/:schoolId', (req: Request, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    const { tenantData } = req.body;
+
+    if (!schoolId || !tenantData) {
+      return res.status(400).json({ success: false, message: 'Missing schoolId or tenantData.' });
+    }
+
+    // Preserve existing hashed passwords for users if plain password not provided
+    const existing = loadTenantData(schoolId);
+    const existingUsers = existing?.users || [];
+    const incomingUsers = tenantData.users || [];
+
+    const mergedUsers = incomingUsers.map((inc: any) => {
+      const match = existingUsers.find(
+        (ex: any) => ex.id === inc.id || ex.email.toLowerCase() === inc.email.toLowerCase()
+      );
+      if (inc.password && inc.password.trim()) {
+        // If password was updated with plain-text, hash it
+        const isAlreadyHashed = /^[a-f0-9]{64}$/i.test(inc.password);
+        return {
+          ...inc,
+          password: isAlreadyHashed ? inc.password : hashPassword(inc.password),
+        };
+      }
+      return {
+        ...inc,
+        password: match?.password || '',
+      };
+    });
+
+    const toSave = {
+      ...tenantData,
+      users: mergedUsers,
+    };
+
+    const saved = saveTenantData(schoolId, toSave);
+
+    // Also update cloud_accounts index for cross-device authentication
+    const cloudAccounts = loadCloudAccounts();
+    for (const u of mergedUsers) {
+      const idx = cloudAccounts.findIndex(
+        (a: any) => a.schoolId === schoolId && a.email.toLowerCase() === u.email.toLowerCase()
+      );
+      const accRecord = {
+        id: u.id,
+        name: u.name,
+        email: u.email.toLowerCase(),
+        role: u.role,
+        title: u.title,
+        schoolId,
+        password: u.password,
+        avatar: u.avatar,
+        studentId: u.studentId,
+        candidateId: u.candidateId,
+      };
+      if (idx >= 0) {
+        cloudAccounts[idx] = { ...cloudAccounts[idx], ...accRecord };
+      } else {
+        cloudAccounts.push(accRecord);
+      }
+    }
+    saveCloudAccounts(cloudAccounts);
+
+    res.json({
+      success: true,
+      version: saved.version,
+      lastModified: saved.lastModified,
+      message: 'Institution records saved to central cloud database.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Lightweight metadata poll endpoint for real-time synchronization across devices
+app.get('/api/cloud/tenant/:schoolId/meta', (req: Request, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    const tenant = loadTenantData(schoolId);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Not found' });
+    }
+
+    res.json({
+      success: true,
+      schoolId,
+      version: tenant.version || 1,
+      lastModified: tenant.lastModified || '',
+      studentCount: (tenant.students || []).length,
+      classCount: (tenant.classes || []).length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 6. Cross-device shared authentication endpoint
+app.post('/api/cloud/auth/login', (req: Request, res: Response) => {
+  try {
+    const { identifier, password, schoolId, loginMode } = req.body;
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    if (!cleanId) {
+      return res.status(400).json({ success: false, message: 'Please provide email or ID.' });
+    }
+
+    // Platform Owner login
+    const BOOTSTRAPPED_OWNER_EMAIL = 'appeadusolomon65@gmail.com'.toLowerCase();
+    if (loginMode === 'owner' || cleanId === BOOTSTRAPPED_OWNER_EMAIL) {
+      if (cleanId !== BOOTSTRAPPED_OWNER_EMAIL) {
+        return res.json({
+          success: false,
+          message: 'Only the verified Platform Owner email address can sign in under Platform Owner access.',
+        });
+      }
+      return res.json({
+        success: true,
+        isPlatformAdmin: true,
+        role: 'platform_owner',
+        user: {
+          id: 'usr-platform-owner',
+          name: 'Solomon Appeadu',
+          email: BOOTSTRAPPED_OWNER_EMAIL,
+          role: 'platform_owner',
+          title: 'EduDigital SIS Platform Owner & Principal Architect',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+          schoolId: schoolId || 'sch-platform',
+        },
+      });
+    }
+
+    // Institutional login across schools
+    const cloudAccounts = loadCloudAccounts();
+    const matchedAccount = cloudAccounts.find((a: any) => {
+      const matchEmail = a.email && a.email.toLowerCase() === cleanId;
+      const matchId = (a.id && a.id.toLowerCase() === cleanId) ||
+        (a.studentId && a.studentId.toLowerCase() === cleanId) ||
+        (a.candidateId && a.candidateId.toLowerCase() === cleanId);
+      if (schoolId) {
+        return (matchEmail || matchId) && a.schoolId === schoolId;
+      }
+      return matchEmail || matchId;
+    });
+
+    if (!matchedAccount) {
+      return res.json({
+        success: false,
+        message: 'No institutional account found with this email or ID. Please check your credentials or reset password.',
+      });
+    }
+
+    // Verify password if one exists on the account
+    if (matchedAccount.password) {
+      if (!cleanPass) {
+        return res.json({ success: false, message: 'Password is required for this account.' });
+      }
+      const passOk = verifyPassword(cleanPass, matchedAccount.password);
+      if (!passOk) {
+        return res.json({ success: false, message: 'Incorrect password.' });
+      }
+    }
+
+    res.json({
+      success: true,
+      schoolId: matchedAccount.schoolId,
+      role: matchedAccount.role,
+      user: {
+        id: matchedAccount.id,
+        name: matchedAccount.name,
+        email: matchedAccount.email,
+        role: matchedAccount.role,
+        title: matchedAccount.title,
+        schoolId: matchedAccount.schoolId,
+        avatar: matchedAccount.avatar,
+        studentId: matchedAccount.studentId,
+        candidateId: matchedAccount.candidateId,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Cross-device password reset endpoint
+app.post('/api/cloud/auth/reset-password', (req: Request, res: Response) => {
+  try {
+    const { identifier, newPassword, schoolId, mode } = req.body;
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const cleanPass = (newPassword || '').trim();
+
+    if (!cleanId || cleanPass.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+    }
+
+    const hashed = hashPassword(cleanPass);
+    const cloudAccounts = loadCloudAccounts();
+    const targetIdx = cloudAccounts.findIndex((a: any) => {
+      const matchEmail = a.email && a.email.toLowerCase() === cleanId;
+      const matchId = a.id && a.id.toLowerCase() === cleanId;
+      return schoolId ? (matchEmail || matchId) && a.schoolId === schoolId : (matchEmail || matchId);
+    });
+
+    if (targetIdx < 0) {
+      return res.json({
+        success: false,
+        message: 'No account found matching this identifier. Please verify your email or ID.',
+      });
+    }
+
+    cloudAccounts[targetIdx].password = hashed;
+    saveCloudAccounts(cloudAccounts);
+
+    // Also update in tenant file if exists
+    const acc = cloudAccounts[targetIdx];
+    const tenant = loadTenantData(acc.schoolId);
+    if (tenant && Array.isArray(tenant.users)) {
+      tenant.users = tenant.users.map((u: any) =>
+        u.email.toLowerCase() === cleanId || u.id === acc.id ? { ...u, password: hashed } : u
+      );
+      saveTenantData(acc.schoolId, tenant);
+    }
+
+    res.json({
+      success: true,
+      message: `Password reset successfully. You can now log in across any device.`,
+      updatedEmail: acc.email,
+      updatedRoleLabel: acc.title || acc.role,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Safe migration of local browser data to central cloud database
+app.post('/api/cloud/migrate-local', (req: Request, res: Response) => {
+  try {
+    const { schools, tenants } = req.body;
+    let migratedSchoolsCount = 0;
+    let migratedTenantsCount = 0;
+
+    const cloudSchools = loadCloudSchools();
+    const existingIds = new Set(cloudSchools.map((s: any) => s.id));
+    const existingCodes = new Set(cloudSchools.map((s: any) => s.code?.toUpperCase()));
+
+    if (Array.isArray(schools)) {
+      for (const sch of schools) {
+        if (!sch || !sch.id || !sch.name) continue;
+        const codeUpper = sch.code?.toUpperCase();
+        if (!existingIds.has(sch.id) && !existingCodes.has(codeUpper)) {
+          cloudSchools.push(sch);
+          existingIds.add(sch.id);
+          if (codeUpper) existingCodes.add(codeUpper);
+          migratedSchoolsCount++;
+          syncSchoolToFirestore(sch);
+        }
+      }
+      if (migratedSchoolsCount > 0) {
+        saveCloudSchools(cloudSchools);
+      }
+    }
+
+    if (tenants && typeof tenants === 'object') {
+      for (const [schId, tenantData] of Object.entries(tenants)) {
+        if (!schId || !tenantData) continue;
+        const currentTenant = loadTenantData(schId);
+        if (!currentTenant) {
+          saveTenantData(schId, tenantData);
+          migratedTenantsCount++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      migratedSchoolsCount,
+      migratedTenantsCount,
+      message: `Migration complete: ${migratedSchoolsCount} institutions and ${migratedTenantsCount} tenant datasets saved to cloud.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 9. Upload asset (student photograph, institution crest, certificate template)
+app.post('/api/cloud/upload-asset', (req: Request, res: Response) => {
+  try {
+    const { dataUrl, fileName, folder } = req.body;
+    if (!dataUrl || !dataUrl.includes('base64,')) {
+      return res.status(400).json({ success: false, message: 'Valid base64 Data URL is required.' });
+    }
+
+    const matches = dataUrl.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ success: false, message: 'Invalid Data URL format.' });
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    let ext = 'jpg';
+    if (mimeType.includes('png')) ext = 'png';
+    else if (mimeType.includes('pdf')) ext = 'pdf';
+    else if (mimeType.includes('webp')) ext = 'webp';
+    else if (mimeType.includes('svg')) ext = 'svg';
+
+    const safeName = (fileName || `asset-${Date.now()}`)
+      .replace(/[^a-zA-Z0-9_\-]/g, '_')
+      .slice(0, 60);
+    const finalFileName = `${safeName}-${Date.now()}.${ext}`;
+
+    const targetSubDir = folder ? path.resolve(UPLOADS_DIR, folder.replace(/[^a-zA-Z0-9_\-]/g, '')) : UPLOADS_DIR;
+    if (!fs.existsSync(targetSubDir)) {
+      fs.mkdirSync(targetSubDir, { recursive: true });
+    }
+
+    const targetFilePath = path.resolve(targetSubDir, finalFileName);
+    fs.writeFileSync(targetFilePath, buffer);
+
+    const publicUrl = folder
+      ? `/uploads/${folder}/${finalFileName}`
+      : `/uploads/${finalFileName}`;
+
+    res.json({
+      success: true,
+      url: publicUrl,
+      fileName: finalFileName,
+      fileSizeBytes: buffer.length,
+    });
+  } catch (err: any) {
+    console.error('Asset upload error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 let cachedAiClient: GoogleGenAI | null = null;
