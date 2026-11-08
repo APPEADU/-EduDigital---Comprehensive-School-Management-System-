@@ -1,0 +1,70 @@
+{
+  "school": {
+    "id": "sch-test-sync",
+    "name": "Achimota Modern Academy",
+    "code": "AMA-01",
+    "isPublic": true,
+    "ownerUid": "platform-owner-system",
+    "updatedAt": "2026-11-07T22:12:20.393Z"
+  },
+  "users": [
+    {
+      "id": "usr-admin-1794089540393",
+      "name": "Mr. Kwame Mensah",
+      "email": "admin@ama.edu.gh",
+      "role": "proprietor",
+      "title": "Headmaster & Super Administrator",
+      "schoolId": "sch-test-sync",
+      "password": "39546907d2936460a840df09fcc078f0073e54b571eaf1e4287d705f754dbf4d",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80",
+      "createdAt": "2026-11-07T22:12:20.394Z"
+    }
+  ],
+  "students": [],
+  "classes": [],
+  "educationalSections": [],
+  "gradeClasses": [],
+  "subjects": [],
+  "admissions": [],
+  "examResults": [],
+  "feeItems": [
+    {
+      "id": "fee-sch-test-sync-1",
+      "name": "Tuition & Registration Fee",
+      "amount": 1850,
+      "classLevel": "All"
+    }
+  ],
+  "feePayments": [],
+  "transactions": [],
+  "staff": [],
+  "staffAttendance": [],
+  "timetable": [],
+  "attendance": [],
+  "libraryBooks": [],
+  "bookLoans": [],
+  "assets": [],
+  "routes": [],
+  "boardingHouses": [],
+  "healthRecords": [],
+  "announcements": [],
+  "researchArticles": [],
+  "programmes": [],
+  "programmeCourses": [],
+  "candidates": [],
+  "candidateAssessments": [],
+  "certificateTemplates": [],
+  "issuedCredentials": [],
+  "graduateRecords": [],
+  "replacementRequests": [],
+  "accreditations": [],
+  "verificationLogs": [],
+  "biometricGateLogs": [],
+  "photoChangeRequests": [],
+  "beceMockSeries": [],
+  "beceMockScores": [],
+  "beceInterventions": [],
+  "beceAiReports": [],
+  "lastModified": "2026-11-07T22:12:20.394Z",
+  "version": 1
+}

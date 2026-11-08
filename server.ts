@@ -55,6 +55,36 @@ function verifyPassword(plain: string, hashedOrPlain: string): boolean {
 }
 
 // In-memory + Disk persistence helpers
+const DEFAULT_INITIAL_SCHOOLS = [
+  {
+    id: 'sch-kri-01',
+    name: 'Kingdom Royal Institute',
+    code: 'KRI-GH-001',
+    motto: 'Excellence, Royalty & Moral Integrity',
+    crest: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&w=200&q=80',
+    levelType: 'SHS',
+    region: 'Greater Accra',
+    district: 'Ayawaso West / East Legon',
+    address: 'Kingdom Royal Avenue, P.O. Box KD 770, East Legon, Accra, Ghana',
+    phone: '+233 (0) 30 288 9911',
+    whatsappNumber: '+233 207615941',
+    whatsappEnabled: true,
+    email: 'info@kingdomroyal.edu.gh',
+    currency: 'GH₵',
+    currentAcademicYear: '2025/2026',
+    currentTerm: 'Term 1',
+    termStartDate: '2025-09-08',
+    termEndDate: '2025-12-18',
+    nextTermBegins: '2026-01-12',
+    headmasterName: 'Dr. Solomon Appeadu-Mensah (FWAS)',
+    headmasterSignature: 'S. Appeadu-Mensah',
+    enabledModules: ['boarding_house', 'transport_fleet', 'canteen_pos', 'ai_analytics'],
+    isPublic: true,
+    ownerUid: 'platform-owner-system',
+    createdAt: '2025-01-01T00:00:00.000Z',
+  },
+];
+
 function loadCloudSchools(): any[] {
   try {
     if (fs.existsSync(CLOUD_SCHOOLS_FILE)) {
@@ -65,7 +95,11 @@ function loadCloudSchools(): any[] {
   } catch (err) {
     console.error('Error reading cloud_schools.json:', err);
   }
-  return [];
+  // Initialize with default seeds so multi-device sync always has institutions
+  try {
+    fs.writeFileSync(CLOUD_SCHOOLS_FILE, JSON.stringify(DEFAULT_INITIAL_SCHOOLS, null, 2), 'utf-8');
+  } catch {}
+  return DEFAULT_INITIAL_SCHOOLS;
 }
 
 function saveCloudSchools(schools: any[]) {
@@ -81,12 +115,39 @@ function loadCloudAccounts(): any[] {
     if (fs.existsSync(CLOUD_ACCOUNTS_FILE)) {
       const raw = fs.readFileSync(CLOUD_ACCOUNTS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (err) {
     console.error('Error reading cloud_accounts.json:', err);
   }
-  return [];
+  const defaultAccounts = [
+    {
+      id: 'usr-admin-solomon',
+      name: 'Dr. Solomon Appeadu-Mensah',
+      email: 'appeadusolomon65@gmail.com',
+      role: 'proprietor',
+      title: 'Super Administrator & Proprietor',
+      schoolId: 'sch-kri-01',
+      password: hashPassword('admin123'),
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+      createdAt: '2025-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'usr-admin-kri',
+      name: 'Mrs. Cynthia Mensah-Bonsu',
+      email: 'admin@kri-gh-001.edu.gh',
+      role: 'admin',
+      title: 'Headmistress & Operations Admin',
+      schoolId: 'sch-kri-01',
+      password: hashPassword('admin123'),
+      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+      createdAt: '2025-01-01T00:00:00.000Z',
+    },
+  ];
+  try {
+    fs.writeFileSync(CLOUD_ACCOUNTS_FILE, JSON.stringify(defaultAccounts, null, 2), 'utf-8');
+  } catch {}
+  return defaultAccounts;
 }
 
 function saveCloudAccounts(accounts: any[]) {
@@ -345,6 +406,38 @@ app.post('/api/cloud/schools', async (req: Request, res: Response) => {
   }
 });
 
+// 2B. Delete an institutional school from the central cloud database (Platform Owner)
+app.delete('/api/cloud/schools/:schoolId', (req: Request, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'Missing schoolId parameter.' });
+    }
+
+    const currentSchools = loadCloudSchools();
+    const updated = currentSchools.filter((s: any) => s.id !== schoolId);
+    saveCloudSchools(updated);
+
+    // Remove tenant file if present
+    const tFile = path.resolve(TENANTS_DIR, `${schoolId}.json`);
+    if (fs.existsSync(tFile)) {
+      try {
+        fs.unlinkSync(tFile);
+      } catch (e) {
+        console.warn(`Could not delete tenant file for ${schoolId}:`, e);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Institution ${schoolId} removed from central cloud database.`,
+      remainingCount: updated.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // 3. Fetch institutional tenant data (students, classes, streams, teachers, exams, fees, etc.)
 app.get('/api/cloud/tenant/:schoolId', (req: Request, res: Response) => {
   try {
@@ -516,7 +609,7 @@ app.post('/api/cloud/auth/login', (req: Request, res: Response) => {
 
     // Institutional login across schools
     const cloudAccounts = loadCloudAccounts();
-    const matchedAccount = cloudAccounts.find((a: any) => {
+    let matchedAccount = cloudAccounts.find((a: any) => {
       const matchEmail = a.email && a.email.toLowerCase() === cleanId;
       const matchId = (a.id && a.id.toLowerCase() === cleanId) ||
         (a.studentId && a.studentId.toLowerCase() === cleanId) ||
@@ -526,6 +619,43 @@ app.post('/api/cloud/auth/login', (req: Request, res: Response) => {
       }
       return matchEmail || matchId;
     });
+
+    // Fallback: If not in global accounts array, search tenant files directly
+    if (!matchedAccount && fs.existsSync(TENANTS_DIR)) {
+      try {
+        const tenantFiles = fs.readdirSync(TENANTS_DIR);
+        for (const file of tenantFiles) {
+          if (!file.endsWith('.json')) continue;
+          try {
+            const rawTenant = fs.readFileSync(path.resolve(TENANTS_DIR, file), 'utf-8');
+            const parsedTenant = JSON.parse(rawTenant);
+            const tenantUsers: any[] = parsedTenant.users || [];
+            const foundUser = tenantUsers.find((u: any) => {
+              const matchEmail = u.email && u.email.toLowerCase() === cleanId;
+              const matchId = (u.id && u.id.toLowerCase() === cleanId) ||
+                (u.studentId && u.studentId.toLowerCase() === cleanId) ||
+                (u.candidateId && u.candidateId.toLowerCase() === cleanId);
+              if (schoolId) {
+                return (matchEmail || matchId) && (u.schoolId === schoolId || parsedTenant.school?.id === schoolId);
+              }
+              return matchEmail || matchId;
+            });
+            if (foundUser) {
+              matchedAccount = {
+                ...foundUser,
+                schoolId: foundUser.schoolId || parsedTenant.school?.id || file.replace('.json', ''),
+              };
+              // Cache in cloud accounts for faster future lookup
+              cloudAccounts.push(matchedAccount);
+              saveCloudAccounts(cloudAccounts);
+              break;
+            }
+          } catch {}
+        }
+      } catch (scanErr) {
+        console.warn('Tenant account scan notice:', scanErr);
+      }
+    }
 
     if (!matchedAccount) {
       return res.json({

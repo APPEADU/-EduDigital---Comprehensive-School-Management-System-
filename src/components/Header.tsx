@@ -420,10 +420,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
                 rel="noopener noreferrer"
                 title={targetLabel}
                 aria-label={targetLabel}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] rounded-lg text-xs font-semibold border border-[#25D366]/40 transition whitespace-nowrap"
+                className="w-8 h-8 rounded-full bg-[#25D366]/20 hover:bg-[#25D366] text-[#25D366] hover:text-slate-950 flex items-center justify-center border border-[#25D366]/40 transition cursor-pointer"
               >
                 <WhatsAppLogoIcon className="w-4 h-4 shrink-0" />
-                <span className="hidden xl:inline">WhatsApp</span>
               </a>
             );
           })()}

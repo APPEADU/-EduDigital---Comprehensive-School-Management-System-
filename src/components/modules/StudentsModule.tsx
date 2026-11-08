@@ -330,7 +330,7 @@ export const StudentsModule: React.FC = () => {
       academicYear: school.currentAcademicYear || '2025/2026',
       sectionId: defaultSec?.id || '',
       gradeId: defaultGrd?.id || '',
-      classId: defaultCls?.id || '',
+      classId: defaultCls?.id || (defaultGrd?.id ? '__auto_a__' : ''),
       stream: defaultCls?.stream || 'A',
       classTeacherId: defaultCls?.formTutorTeacherId || '',
       programme:
@@ -355,7 +355,7 @@ export const StudentsModule: React.FC = () => {
       ...prev,
       sectionId,
       gradeId: firstGrade?.id || '',
-      classId: firstStream?.id || '',
+      classId: firstStream?.id || (firstGrade?.id ? '__auto_a__' : ''),
       stream: firstStream?.stream || 'A',
       classTeacherId: firstStream?.formTutorTeacherId || '',
       programme:
@@ -392,7 +392,7 @@ export const StudentsModule: React.FC = () => {
     setNewStudent((prev) => ({
       ...prev,
       gradeId,
-      classId: firstStream?.id || '',
+      classId: firstStream?.id || (gradeId ? '__auto_a__' : ''),
       stream: firstStream?.stream || 'A',
       classTeacherId: firstStream?.formTutorTeacherId || '',
       programme: firstStream?.programme || prev.programme,
@@ -1564,7 +1564,11 @@ export const StudentsModule: React.FC = () => {
                       )}
                     </div>
                     <select
-                      value={newStudent.classId}
+                      value={
+                        newStudent.classId ||
+                        enrollStreamsForGrade[0]?.id ||
+                        (newStudent.gradeId ? '__auto_a__' : '')
+                      }
                       disabled={!newStudent.gradeId}
                       onChange={(e) => handleEnrollStreamChange(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
@@ -1573,9 +1577,7 @@ export const StudentsModule: React.FC = () => {
                         <option value="">Select Class / Grade first</option>
                       ) : enrollStreamsForGrade.length === 0 ? (
                         <option value="__auto_a__">Stream A (Default Stream)</option>
-                      ) : (
-                        <option value="">-- Select Stream / Division --</option>
-                      )}
+                      ) : null}
                       {enrollStreamsForGrade.map((streamCls) => (
                         <option key={streamCls.id} value={streamCls.id}>
                           {streamCls.name} (Stream {streamCls.stream}

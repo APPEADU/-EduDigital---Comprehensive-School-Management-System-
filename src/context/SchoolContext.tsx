@@ -1211,17 +1211,22 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
 
     async function initializeCloudStorage() {
+      let discoveredCloudSchools: SchoolProfile[] = [];
+
       // 1. Fetch from Central Cloud Database API
       try {
         const cloudSchools = await fetchCloudSchools();
         if (!cancelled && cloudSchools && cloudSchools.length > 0) {
           const valid = cloudSchools.filter((s) => !isRemovedSampleSchoolId(s.id));
-          setSchools((prev) =>
-            mergeById(
-              prev.filter((s) => s.id !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(s.id)),
-              valid
-            )
-          );
+          if (valid.length > 0) {
+            discoveredCloudSchools = [...valid];
+            setSchools((prev) =>
+              mergeById(
+                prev.filter((s) => s.id !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(s.id)),
+                valid
+              )
+            );
+          }
         }
       } catch (err) {
         console.warn('Central cloud schools boot query notice:', err);
@@ -1261,6 +1266,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (cancelled) return;
         const validCloudSchools = registry.schools.filter((s) => !isRemovedSampleSchoolId(s.id));
         if (validCloudSchools.length > 0) {
+          discoveredCloudSchools = mergeById(discoveredCloudSchools, validCloudSchools);
           setSchools((prev) =>
             mergeById(
               prev.filter((s) => s.id !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(s.id)),
@@ -1282,17 +1288,34 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       // 4. Hydrate active school tenant data from Central Cloud Database
-      const currentActiveId =
+      let currentActiveId =
         activeSchoolId && activeSchoolId !== EMPTY_SCHOOL_ID
           ? activeSchoolId
           : localStorage.getItem(ACTIVE_SCHOOL_KEY);
+
+      // Multi-Device Synchronisation: On a fresh device with no prior localStorage,
+      // automatically adopt the first discovered cloud school so users immediately see registered records.
+      if (!currentActiveId || currentActiveId === EMPTY_SCHOOL_ID) {
+        if (discoveredCloudSchools.length > 0) {
+          currentActiveId = discoveredCloudSchools[0].id;
+          setActiveSchoolId(currentActiveId);
+          try {
+            localStorage.setItem(ACTIVE_SCHOOL_KEY, currentActiveId);
+          } catch {
+            // Ignore
+          }
+        }
+      }
 
       if (currentActiveId && currentActiveId !== EMPTY_SCHOOL_ID && !isRemovedSampleSchoolId(currentActiveId)) {
         try {
           const cloudTenantRes = await fetchCloudTenantData(currentActiveId);
           if (!cancelled && cloudTenantRes && cloudTenantRes.tenant) {
             localTenantVersionRef.current = cloudTenantRes.version;
-            const matchingSchool = schools.find((s) => s.id === currentActiveId) || cloudTenantRes.tenant.school;
+            const matchingSchool =
+              discoveredCloudSchools.find((s) => s.id === currentActiveId) ||
+              schools.find((s) => s.id === currentActiveId) ||
+              cloudTenantRes.tenant.school;
             applyTenantState(currentActiveId, cloudTenantRes.tenant, matchingSchool);
           }
         } catch (tenantErr) {
@@ -5425,12 +5448,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const duplicate = classes.find(
       (c) =>
         c.gradeId === grade.id &&
-        c.name.trim().toLowerCase() === finalName.toLowerCase()
+        (c.name.trim().toLowerCase() === finalName.toLowerCase() ||
+          c.stream?.trim().toLowerCase() === formatted.streamLabel.toLowerCase())
     );
     if (duplicate) {
       return {
-        success: false,
-        message: `Stream "${finalName}" already exists under ${grade.name}.`,
+        success: true,
+        classRoom: duplicate,
+        message: `Stream "${finalName}" selected.`,
       };
     }
 
@@ -5684,11 +5709,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const targetGradeObj = gradeClasses.find((g) => g.id === data.gradeId);
-    let selectedClassRoom: ClassRoom | undefined = data.classId
-      ? classes.find((c) => c.id === data.classId)
-      : undefined;
+    let selectedClassRoom: ClassRoom | undefined =
+      data.classId && data.classId !== '__auto_a__'
+        ? classes.find((c) => c.id === data.classId)
+        : undefined;
 
-    if (!selectedClassRoom) {
+    if (!selectedClassRoom && data.gradeId) {
       selectedClassRoom = classes.find((c) => c.gradeId === data.gradeId && c.active !== false);
     }
 
@@ -5705,17 +5731,31 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (!selectedClassRoom) {
-      return {
-        success: false,
-        message: 'Please select or create a Stream / Division belonging to the chosen class.',
+      const defaultDiv = data.stream || 'A';
+      const fallbackRoom: ClassRoom = {
+        id: `cls-${activeSchoolId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: targetGradeObj ? `${targetGradeObj.name} - Stream ${defaultDiv}` : `General Stream ${defaultDiv}`,
+        sectionId: data.sectionId || educationalSections[0]?.id,
+        sectionName: educationalSections.find((s) => s.id === data.sectionId)?.name || 'General Section',
+        gradeId: data.gradeId,
+        gradeName: targetGradeObj?.name || 'Class',
+        level: (targetGradeObj?.levelCategory === 'SHS'
+          ? 'SHS'
+          : targetGradeObj?.levelCategory === 'JHS'
+          ? 'JHS'
+          : 'Basic') as 'Basic' | 'JHS' | 'SHS',
+        form: targetGradeObj?.formNumber || 1,
+        stream: defaultDiv,
+        streamLetter: defaultDiv,
+        programme: data.programme || 'General Academics',
+        formTutorTeacherId: data.classTeacherId || staff[0]?.id || currentUser.id,
+        classTeacherName: resolveTeacherDisplayName(data.classTeacherId || staff[0]?.id || currentUser.id),
+        roomNumber: `Rm-${defaultDiv}`,
+        capacity: 40,
+        active: true,
       };
-    }
-
-    if (selectedClassRoom.gradeId && selectedClassRoom.gradeId !== data.gradeId) {
-      return {
-        success: false,
-        message: 'Selected Stream does not belong to the selected Class / Grade. Please re-select the stream.',
-      };
+      setClasses((prev) => [...prev, fallbackRoom]);
+      selectedClassRoom = fallbackRoom;
     }
 
     const dupCheck = checkDuplicateStudentEnrolment({

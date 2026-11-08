@@ -1,0 +1,35 @@
+[
+  {
+    "id": "usr-admin-solomon",
+    "name": "Dr. Solomon Appeadu-Mensah",
+    "email": "appeadusolomon65@gmail.com",
+    "role": "proprietor",
+    "title": "Super Administrator & Proprietor",
+    "schoolId": "sch-kri-01",
+    "password": "fdd544989948cc28b2b370bc7e858c324db06cabe8b14b2cf9ab1d8c03cc6c8c",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "usr-admin-kri",
+    "name": "Mrs. Cynthia Mensah-Bonsu",
+    "email": "admin@kri-gh-001.edu.gh",
+    "role": "admin",
+    "title": "Headmistress & Operations Admin",
+    "schoolId": "sch-kri-01",
+    "password": "fdd544989948cc28b2b370bc7e858c324db06cabe8b14b2cf9ab1d8c03cc6c8c",
+    "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "usr-admin-1794089540393",
+    "name": "Mr. Kwame Mensah",
+    "email": "admin@ama.edu.gh",
+    "role": "proprietor",
+    "title": "Headmaster & Super Administrator",
+    "schoolId": "sch-test-sync",
+    "password": "39546907d2936460a840df09fcc078f0073e54b571eaf1e4287d705f754dbf4d",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80",
+    "createdAt": "2026-11-07T22:12:20.394Z"
+  }
+]
