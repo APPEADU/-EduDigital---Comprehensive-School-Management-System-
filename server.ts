@@ -9,6 +9,8 @@ import type { GoogleGenAI } from '@google/genai';
 
 import crypto from 'crypto';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
+import { db } from './src/db/index.ts';
+import { schools as sqlSchools, users as sqlUsers } from './src/db/schema.ts';
 
 dotenv.config();
 
@@ -383,6 +385,29 @@ app.post('/api/cloud/schools', async (req: Request, res: Response) => {
 
     saveTenantData(schoolId, baseTenant);
 
+    // Background sync to Cloud SQL PostgreSQL
+    if (process.env.SQL_HOST) {
+      db.insert(sqlSchools)
+        .values({
+          id: cleanSchool.id,
+          name: cleanSchool.name,
+          code: cleanSchool.code,
+          motto: cleanSchool.motto || '',
+          levelType: cleanSchool.levelType || 'SHS',
+          region: cleanSchool.region || 'Greater Accra',
+          district: cleanSchool.district || '',
+          address: cleanSchool.address || '',
+          phone: cleanSchool.phone || '',
+          email: cleanSchool.email || '',
+          currency: cleanSchool.currency || 'GH₵',
+          currentAcademicYear: cleanSchool.currentAcademicYear || '2025/2026',
+          currentTerm: cleanSchool.currentTerm || 'Term 1',
+          ownerUid: cleanSchool.ownerUid || 'platform-owner-system',
+        })
+        .onConflictDoNothing()
+        .catch((e: any) => console.warn('Cloud SQL school sync warning:', e.message));
+    }
+
     // Background sync to Firestore REST API
     syncSchoolToFirestore(cleanSchool);
 
@@ -435,6 +460,33 @@ app.delete('/api/cloud/schools/:schoolId', (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2C. Cloud SQL PostgreSQL Endpoints (DQL/DML)
+app.get('/api/cloudsql/schools', async (_req: Request, res: Response) => {
+  try {
+    if (!process.env.SQL_HOST) {
+      return res.json({ success: true, source: 'local', schools: loadCloudSchools() });
+    }
+    const rows = await db.select().from(sqlSchools);
+    res.json({ success: true, source: 'cloudsql', count: rows.length, schools: rows });
+  } catch (error: any) {
+    console.error('Failed to fetch schools from Cloud SQL:', error);
+    res.status(500).json({ success: false, error: 'Database query failed' });
+  }
+});
+
+app.get('/api/cloudsql/users', async (_req: Request, res: Response) => {
+  try {
+    if (!process.env.SQL_HOST) {
+      return res.json({ success: true, source: 'local', users: loadCloudAccounts() });
+    }
+    const rows = await db.select().from(sqlUsers);
+    res.json({ success: true, source: 'cloudsql', count: rows.length, users: rows });
+  } catch (error: any) {
+    console.error('Failed to fetch users from Cloud SQL:', error);
+    res.status(500).json({ success: false, error: 'Database query failed' });
   }
 });
 
