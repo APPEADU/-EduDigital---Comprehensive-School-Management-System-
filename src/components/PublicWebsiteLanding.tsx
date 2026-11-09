@@ -654,11 +654,11 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
 
     try {
       const existingRaw =
-        localStorage.getItem('edudigital_platform_enquiries_v1') ??
-        localStorage.getItem('edughana_platform_enquiries_v1');
+        localStorage.getItem('infodigital_platform_enquiries_v1') ??
+        localStorage.getItem('infodigital_platform_enquiries_legacy');
       const existing: SubmittedEnquiry[] = existingRaw ? JSON.parse(existingRaw) : [];
       localStorage.setItem(
-        'edudigital_platform_enquiries_v1',
+        'infodigital_platform_enquiries_v1',
         JSON.stringify([payload, ...existing].slice(0, 50))
       );
     } catch {
@@ -670,7 +670,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
 
   const handleDownloadBrochureTxt = () => {
     const content = [
-      'EDUDIGITAL SIS — ALL-IN-ONE SCHOOL AND INSTITUTION MANAGEMENT SYSTEM',
+      'INFODIGITAL SIS — ALL-IN-ONE SCHOOL AND INSTITUTION MANAGEMENT SYSTEM',
       'One Platform. Every Institution. Complete Management.',
       '========================================================================',
       '',
@@ -800,7 +800,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               href="#top"
               className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-amber-300 via-emerald-300 to-sky-300 bg-clip-text text-transparent whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity"
             >
-              EduDigital
+              InfoDigital
             </a>
 
             {/* Zone 2: Navigation Links */}
@@ -1079,7 +1079,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               <div className="relative flex-1 min-h-[320px] sm:min-h-[400px] lg:h-full rounded-2xl overflow-hidden border border-amber-400/35 bg-slate-950 shadow-2xl group">
                 <img
                   src={heroEduDashboardImg}
-                  alt="EduDigital SIS Dashboard on Apple display showing Ghanaian student metrics, fee collection in GHS, BECE mock exams and attendance analytics"
+                  alt="InfoDigital Dashboard on Apple display showing student metrics, fee collection, BECE mock exams and attendance analytics"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                 />
@@ -1142,7 +1142,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
       </section>
 
       {/* =====================================================================
-          SECTION 01 — ABOUT EDUDIGITAL SIS / EDUGHANA SIS & 9 INSTITUTION TIERS
+          SECTION 01 — ABOUT INFODIGITAL & 9 INSTITUTION TIERS
          ===================================================================== */}
       <section id="about" className="px-4 sm:px-8 py-14 sm:py-20 border-b border-indigo-500/20 bg-slate-950/70">
         <div className="max-w-7xl mx-auto space-y-12">
@@ -1153,14 +1153,14 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                 <span>Section 01 · Institutional Ecosystem</span>
               </div>
               <h2 className="font-serif text-2xl sm:text-4xl font-bold text-white tracking-tight text-balance">
-                About EduDigital
+                About InfoDigital
               </h2>
-              <p className="text-[15px] sm:text-base text-slate-200 leading-relaxed">
-                EduDigital is the unified school and institutional management system built specifically
-                for modern educational landscapes. From grassroots basic schools in Accra, Kumasi,
-                and Tamale to prestigious senior high schools, universities, chartered professional bodies, and vocational
+              <p className="text-[15px] sm:text-base text-slate-200 leading-relaxed text-justify">
+                InfoDigital is the unified school and institutional management platform engineered
+                for modern educational landscapes. From grassroots basic schools to prestigious
+                senior high schools, colleges, universities, chartered professional bodies, and vocational
                 centres, our platform eliminates administrative fragmentation, guarantees multi-device synchronisation,
-                and elevates institutional credibility.
+                and elevates institutional excellence.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
                 <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-left">
@@ -1182,7 +1182,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               <div className="relative rounded-2xl overflow-hidden border border-emerald-500/30 shadow-2xl bg-slate-900/80">
                 <img
                   src={modernAfricanCampusImg}
-                  alt="Modern EduDigital school campus with students in uniform"
+                  alt="Modern InfoDigital school campus with students in uniform"
                   className="w-full h-64 sm:h-72 object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
@@ -1600,10 +1600,10 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               <h2 className="font-serif text-2xl sm:text-4xl font-bold text-white tracking-tight text-balance">
                 Streamlined Admission with Intelligent Class &amp; Stream Placement
               </h2>
-              <p className="text-[15px] text-slate-200 leading-relaxed">
-                Whether admitting a toddler to Creche or placing an SHS 1 student into General Science Stream B,
-                EduDigital SIS ensures student registration is seamless. The system dynamically assigns classes
-                and divisions, creating active streams on the fly to eliminate registration lockups.
+              <p className="text-[15px] text-slate-200 leading-relaxed text-justify">
+                From kindergarten to SHS and tertiary programs, InfoDigital makes student registration seamless.
+                Classes and streams are assigned dynamically with automatic fallback handling, ensuring admissions
+                never lock up.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -2993,7 +2993,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="text-sm font-bold bg-gradient-to-r from-amber-300 via-emerald-300 to-sky-300 bg-clip-text text-transparent">
-              EduDigital SIS · One Platform. Every Institution. Complete Management.
+              InfoDigital · One Platform. Every Institution. Complete Management.
             </div>
             <p className="text-slate-300">
               Simplifying Education. Empowering Institutions. Verifying Excellence.

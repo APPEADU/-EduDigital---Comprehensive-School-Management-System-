@@ -790,7 +790,7 @@ export const SEEDED_SCHOOLS: SchoolProfile[] = [];
 
 export const EMPTY_WORKSPACE_SCHOOL: SchoolProfile = {
   id: 'sch-uninitialized',
-  name: 'EduDigital SIS Platform',
+  name: 'InfoDigital Platform',
   code: 'NO-SCHOOL',
   motto: 'Register an Institute or School to Begin',
   crest: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&w=300&q=80',
@@ -801,7 +801,7 @@ export const EMPTY_WORKSPACE_SCHOOL: SchoolProfile = {
   phone: '',
   whatsappNumber: '',
   whatsappEnabled: false,
-  email: 'owner@edudigital.sis',
+  email: 'owner@infodigital.org',
   currency: 'GH₵',
   currentAcademicYear: '2025/2026',
   currentTerm: 'Term 1',

@@ -557,7 +557,7 @@ export const SchoolSettingsModule: React.FC = () => {
                     <a
                       href={buildWhatsAppUrl(
                         profile.whatsappNumber || profile.phone,
-                        `Hello ${profile.name}, testing our institutional WhatsApp contact link from EduDigital SIS.`
+                        `Hello ${profile.name}, testing our institutional WhatsApp contact link from InfoDigital.`
                       )}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1041,7 +1041,7 @@ export const SchoolSettingsModule: React.FC = () => {
                 </h3>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                EduDigital SIS hosts multiple independent institutions on a single platform with zero cross-school data leak.
+                InfoDigital hosts multiple independent institutions on a single platform with zero cross-school data leak.
               </p>
             </div>
 
@@ -1194,7 +1194,7 @@ export const SchoolSettingsModule: React.FC = () => {
                         <a
                           href={buildWhatsAppUrl(
                             wa.rawNumber,
-                            `Hello ${s.name}, reaching out from the EduDigital SIS Multi-School Directory.`
+                            `Hello ${s.name}, reaching out from the InfoDigital Multi-School Directory.`
                           )}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1269,7 +1269,7 @@ export const SchoolSettingsModule: React.FC = () => {
                 </h4>
                 <div className="text-slate-300 leading-relaxed space-y-2">
                   <p>
-                    <strong className="text-emerald-400 font-bold">YES, absolutely.</strong> EduDigital SIS is engineered from the ground up as a native <strong>Multi-Tenant Software-as-a-Service (SaaS)</strong> platform.
+                    <strong className="text-emerald-400 font-bold">YES, absolutely.</strong> InfoDigital is engineered from the ground up as a native <strong>Multi-Tenant Software-as-a-Service (SaaS)</strong> platform.
                   </p>
                   <p className="text-slate-400">
                     Multiple professional institutes and basic/secondary schools that you register run simultaneously on the same platform while retaining completely separate identities, institutional codes, academic calendars, and custom logos.
@@ -1343,7 +1343,7 @@ export const SchoolSettingsModule: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                    <strong>Can a specific school have a feature that other schools don't? YES!</strong> Every institution operates with its own tenant feature flags. Toggling an add-on below activates it <em>only</em> for <strong>{school.name}</strong> ({school.code}). Other schools on EduDigital SIS do not see, execute, or get billed for modules they do not activate.
+                    <strong>Can a specific school have a feature that other schools don't? YES!</strong> Every institution operates with its own tenant feature flags. Toggling an add-on below activates it <em>only</em> for <strong>{school.name}</strong> ({school.code}). Other schools on InfoDigital do not see, execute, or get billed for modules they do not activate.
                   </p>
                 </div>
               </div>

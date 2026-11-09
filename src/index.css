@@ -10,6 +10,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* User directive: Justified text alignment throughout body paragraphs and narratives */
+p,
+.prose-text,
+.justified-text,
+.text-justify {
+  text-align: justify;
+  text-justify: inter-word;
+}
+
 .edu-aurora-canvas {
   background-color: #060d1f;
   background-image:

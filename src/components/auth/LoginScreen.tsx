@@ -219,7 +219,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
               <div>
                 <div className="text-xs font-semibold text-amber-300 mb-1">
-                  EduDigital SIS · Institutional Cloud
+                  InfoDigital · Institutional Cloud
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight text-balance">
                   Institutional Management Portal
@@ -663,8 +663,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
                       <span>Platform Owner &amp; Super Administrator Sign-In</span>
                     </h2>
-                    <p className="text-slate-300 text-[11px] mt-1 leading-relaxed">
-                      Authorised access for the EduDigital SIS Platform Owner to register new
+                    <p className="text-slate-300 text-[11px] mt-1 leading-relaxed text-justify">
+                      Authorised access for the InfoDigital Platform Owner to register new
                       schools and professional institutes, oversee multi-tenant workspaces, and
                       manage the official Platform Owner profile.
                     </p>
@@ -850,8 +850,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
                       <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5 text-[11px] text-slate-400 leading-relaxed">
                         <Lock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <p>
-                          Restricted to the verified EduDigital SIS Platform Owner email or Google
+                        <p className="text-justify">
+                          Restricted to the verified InfoDigital Platform Owner email or Google
                           account. School proprietors, staff, and students should use the{' '}
                           <button
                             type="button"
@@ -1147,7 +1147,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <a
             href={buildWhatsAppUrl(
               PLATFORM_OWNER_WHATSAPP_RAW,
-              'Hello EduDigital SIS Support, I am visiting the portal login page and would like assistance with institutional onboarding or portal access.'
+              'Hello InfoDigital Support, I am visiting the portal login page and would like assistance with institutional onboarding or portal access.'
             )}
             target="_blank"
             rel="noopener noreferrer"
@@ -1198,7 +1198,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </div>
 
         <p className="text-center text-[11px] text-slate-500">
-          EduDigital SIS · Ghana Data Protection Act 2012 (Act 843) Compliant
+          InfoDigital · Ghana Data Protection Act 2012 (Act 843) Compliant
         </p>
       </div>
 

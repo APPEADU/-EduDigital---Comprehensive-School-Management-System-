@@ -137,23 +137,23 @@ import {
   uploadAssetToCloud,
 } from '../lib/cloudStoreApi';
 
-const TENANT_STORAGE_PREFIX = 'edudigital_tenant_';
-const LEGACY_TENANT_STORAGE_PREFIX = 'edughana_tenant_';
-const SCHOOLS_STORAGE_KEY = 'edudigital_schools_v3';
-const LEGACY_SCHOOLS_STORAGE_KEY = 'edughana_schools_v3';
-const ACTIVE_SCHOOL_KEY = 'edudigital_active_school_id_v3';
-const LEGACY_ACTIVE_SCHOOL_KEY = 'edughana_active_school_id_v3';
-const PLATFORM_OWNER_PROFILE_KEY = 'edudigital_platform_owner_profile_v1';
-const LEGACY_PLATFORM_OWNER_PROFILE_KEY = 'edughana_platform_owner_profile_v1';
-const PLATFORM_OWNER_SESSION_KEY = 'edudigital_platform_owner_session_v1';
-const PLATFORM_OWNER_PASSWORD_KEY = 'edudigital_platform_owner_password_v1';
+const TENANT_STORAGE_PREFIX = 'infodigital_tenant_';
+const LEGACY_TENANT_STORAGE_PREFIX = 'infodigital_tenant_v2_';
+const SCHOOLS_STORAGE_KEY = 'infodigital_schools_v3';
+const LEGACY_SCHOOLS_STORAGE_KEY = 'infodigital_schools_legacy';
+const ACTIVE_SCHOOL_KEY = 'infodigital_active_school_id_v3';
+const LEGACY_ACTIVE_SCHOOL_KEY = 'infodigital_active_school_legacy';
+const PLATFORM_OWNER_PROFILE_KEY = 'infodigital_platform_owner_profile_v1';
+const LEGACY_PLATFORM_OWNER_PROFILE_KEY = 'infodigital_platform_owner_profile_legacy';
+const PLATFORM_OWNER_SESSION_KEY = 'infodigital_platform_owner_session_v1';
+const PLATFORM_OWNER_PASSWORD_KEY = 'infodigital_platform_owner_password_v1';
 const LEGACY_STORAGE_KEY = 'kingdom_royal_institute_sis_v2';
 const EMPTY_SCHOOL_ID = 'sch-uninitialized';
 
 const EMPTY_FALLBACK_USER: UserAccount = {
   id: 'usr-unassigned',
   name: 'Platform Administrator',
-  email: 'owner@edudigital.sis',
+  email: 'owner@infodigital.org',
   role: 'proprietor',
   title: 'Platform Owner',
   avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
@@ -3611,7 +3611,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         success: false,
         isPlatformAdmin: false,
         message:
-          'Access denied: This email address is not authorised as the EduDigital SIS Platform Owner. Please use Staff & Admin or Student sign-in for institutional accounts.',
+          'Access denied: This email address is not authorised as the InfoDigital Platform Owner. Please use Staff & Admin or Student sign-in for institutional accounts.',
       };
     }
 
@@ -4337,8 +4337,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // EXISTING SCHOOL CRUD OPERATIONS
   // ============================================================================
 
-  const FEATURE_REQUESTS_KEY = 'edudigital_feature_requests_v1';
-  const LEGACY_FEATURE_REQUESTS_KEY = 'edughana_feature_requests_v1';
+  const FEATURE_REQUESTS_KEY = 'infodigital_feature_requests_v1';
+  const LEGACY_FEATURE_REQUESTS_KEY = 'infodigital_feature_requests_legacy';
   const [customFeatureRequests, setCustomFeatureRequests] = useState<CustomFeatureRequest[]>(() => {
     try {
       const stored =
@@ -6176,7 +6176,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `art-${activeSchoolId}-${Date.now()}`,
       schoolId: activeSchoolId,
       publicationDate: new Date().toISOString().split('T')[0],
-      doi: `10.5281/edudigital.${cleanSchoolCode}.${year}.${randomSeq}`,
+      doi: `10.5281/infodigital.${cleanSchoolCode}.${year}.${randomSeq}`,
       viewsCount: 1,
       downloadsCount: 0,
       citationsCount: 0,

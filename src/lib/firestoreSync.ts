@@ -1809,7 +1809,7 @@ export async function upsertResearchArticleInCloud(
         keywords: safeKeywords,
         publicationDate: clampStr(article.publicationDate, 1, 32, '2025-10-01'),
         volume: clampStr(article.volume, 1, 80, 'Vol. 1, Issue 1'),
-        doi: clampStr(article.doi, 3, 120, '10.5281/edudigital.2025.100'),
+        doi: clampStr(article.doi, 3, 120, '10.5281/infodigital.2025.100'),
         status: safeArtStatus,
         viewsCount: clampNum(article.viewsCount, 0, 100000000),
         downloadsCount: clampNum(article.downloadsCount, 0, 100000000),

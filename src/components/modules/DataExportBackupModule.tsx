@@ -990,7 +990,7 @@ export const DataExportBackupModule: React.FC = () => {
       } else {
         setStatusBanner({
           type: 'error',
-          text: `Could not restore "${file.name}". Ensure it is a valid EduDigital SIS JSON backup.`,
+          text: `Could not restore "${file.name}". Ensure it is a valid InfoDigital JSON backup.`,
         });
       }
     };

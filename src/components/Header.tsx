@@ -126,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `edudigital_backup_${school.code}_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `infodigital_backup_${school.code}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -412,7 +412,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               : `WhatsApp Platform Owner (${PLATFORM_OWNER_WHATSAPP_DISPLAY})`;
             const prefill = schoolWA.enabled
               ? `Hello ${school.name}, I am reaching out from the ${school.code} portal.`
-              : `Hello Platform Owner, I am reaching out from EduDigital SIS.`;
+              : `Hello Platform Owner, I am reaching out from InfoDigital.`;
             return (
               <a
                 href={buildWhatsAppUrl(targetPhone, prefill)}

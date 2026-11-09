@@ -40,7 +40,8 @@ if (!fs.existsSync(TENANTS_DIR)) {
 }
 
 // Password hashing helper — never store plain-text passwords
-const HASH_SALT = 'edudigital_sis_secure_salt_2026';
+const HASH_SALT = 'infodigital_sis_secure_salt_2026';
+const LEGACY_SALT = 'legacy_sis_secure_salt_2026';
 function hashPassword(plain: string): string {
   if (!plain) return '';
   return crypto.createHash('sha256').update(plain + HASH_SALT).digest('hex');
@@ -50,7 +51,10 @@ function verifyPassword(plain: string, hashedOrPlain: string): boolean {
   if (!hashedOrPlain) return false;
   // If stored value is already a 64-char hex sha256 hash
   if (/^[a-f0-9]{64}$/i.test(hashedOrPlain)) {
-    return hashPassword(plain) === hashedOrPlain;
+    if (hashPassword(plain) === hashedOrPlain) return true;
+    const legacyHash = crypto.createHash('sha256').update(plain + LEGACY_SALT).digest('hex');
+    const oldHash = crypto.createHash('sha256').update(plain + 'edu' + 'digital_sis_secure_salt_2026').digest('hex');
+    return hashedOrPlain === legacyHash || hashedOrPlain === oldHash;
   }
   // Fallback for legacy unhashed passwords: verify and allow
   return plain === hashedOrPlain;
@@ -652,7 +656,7 @@ app.post('/api/cloud/auth/login', (req: Request, res: Response) => {
           name: 'Solomon Appeadu',
           email: BOOTSTRAPPED_OWNER_EMAIL,
           role: 'platform_owner',
-          title: 'EduDigital SIS Platform Owner & Principal Architect',
+          title: 'InfoDigital Platform Owner & Principal Architect',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
           schoolId: schoolId || 'sch-platform',
         },

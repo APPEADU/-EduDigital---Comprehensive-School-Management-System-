@@ -18,7 +18,7 @@ export const WhatsAppConnectWidget: React.FC = () => {
     platformOwnerProfile?.whatsappNumber?.trim() || PLATFORM_OWNER_WHATSAPP_RAW;
   const ownerWhatsAppUrl = buildWhatsAppUrl(
     ownerWhatsAppNumber,
-    'Hello Platform Owner, I am visiting the EduDigital portal and would like to enquire about institutional onboarding, subscription packages, or a demonstration.'
+    'Hello Platform Owner, I am visiting the InfoDigital portal and would like to enquire about institutional onboarding, subscription packages, or a demonstration.'
   );
 
   return (

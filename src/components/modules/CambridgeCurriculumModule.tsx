@@ -334,7 +334,7 @@ export const CambridgeCurriculumModule: React.FC = () => {
               ✓
             </div>
             <div>
-              <span className="font-semibold text-white">Feature Isolation Active:</span> This Cambridge grading module is configured specifically for <strong>{school.name}</strong>. Other schools in the EduDigital SIS tenant registry that only use GES/WASSCE (or standard BECE) do not see this module or have their database tables altered.
+              <span className="font-semibold text-white">Feature Isolation Active:</span> This Cambridge grading module is configured specifically for <strong>{school.name}</strong>. Other schools in the InfoDigital tenant registry that only use GES/WASSCE (or standard BECE) do not see this module or have their database tables altered.
             </div>
           </div>
         </div>

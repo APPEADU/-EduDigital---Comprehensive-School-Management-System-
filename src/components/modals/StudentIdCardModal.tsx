@@ -158,7 +158,7 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({ student,
                 <QrCode className="w-14 h-14 text-slate-900" />
               </div>
               <span className="text-[9px] font-mono text-slate-500 mt-1 uppercase">
-                VERIFIED BY EDUDIGITAL SIS · {school.code}
+                VERIFIED BY INFODIGITAL SIS · {school.code}
               </span>
               <p className="text-[8px] text-slate-400 mt-1">
                 If found, please return to {school.address} or call {school.phone}.

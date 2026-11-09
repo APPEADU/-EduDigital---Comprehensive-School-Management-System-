@@ -18,6 +18,10 @@ import {
   AlertTriangle,
   ArrowRight,
 } from 'lucide-react';
+import modernAfricanCampusImg from '../../assets/images/modern_african_campus_1794091594696.jpg';
+import stemClassroomImg from '../../assets/images/african_stem_classroom_1794088662516.jpg';
+import instituteGraduationImg from '../../assets/images/professional_institute_graduation_1793363543705.jpg';
+import heroCampusImg from '../../assets/images/hero_campus_administration_1793363542493.jpg';
 
 export const DashboardModule: React.FC = () => {
   const {
@@ -76,9 +80,16 @@ export const DashboardModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950 via-teal-900/90 to-emerald-900 p-6 sm:p-8 text-white border border-teal-400/30 shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Welcome Banner with Campus Photographic Backdrop */}
+      <div className="relative overflow-hidden rounded-2xl border border-teal-400/35 shadow-2xl text-white group">
+        <img
+          src={modernAfricanCampusImg}
+          alt="Modern school campus"
+          className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-indigo-950/90 to-teal-950/80 backdrop-blur-[2px]" />
+
+        <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
               <span>{school.currentAcademicYear}</span>
@@ -88,8 +99,8 @@ export const DashboardModule: React.FC = () => {
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               {school.name}
             </h2>
-            <p className="text-sm text-sky-100/90 leading-relaxed">
-              Institutional management workspace overseeing {totalStudents} active learners, academic assessments, Mobile Money collections, and campus operations.
+            <p className="text-sm text-sky-100/90 leading-relaxed text-justify">
+              Unified institutional workspace overseeing {totalStudents} enrolled learners, continuous assessments, fee collections, and daily campus administration.
             </p>
           </div>
 
@@ -99,14 +110,14 @@ export const DashboardModule: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg cursor-pointer whitespace-nowrap"
             >
               <Sparkles className="w-4 h-4 text-amber-200" />
-              <span>AI School Analytics</span>
+              <span>AI Analytics</span>
             </button>
             <button
               onClick={() => setActiveModule('examinations')}
               className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold transition shadow-md cursor-pointer whitespace-nowrap"
             >
               <FileSpreadsheet className="w-4 h-4 text-slate-950" />
-              <span>Manage Terminal Marks</span>
+              <span>Record Marks</span>
             </button>
           </div>
         </div>
@@ -192,6 +203,75 @@ export const DashboardModule: React.FC = () => {
             >
               Review Pipeline →
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Operational Highlights — 3 Photographic Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div
+          onClick={() => setActiveModule('academics')}
+          className="relative rounded-2xl overflow-hidden border border-emerald-500/35 bg-slate-900 shadow-lg group cursor-pointer h-48 sm:h-52"
+        >
+          <img
+            src={stemClassroomImg}
+            alt="STEM Laboratory and Classrooms"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-transparent p-5 flex flex-col justify-end">
+            <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
+              Academics &amp; STEM Labs
+            </span>
+            <h4 className="text-sm font-bold text-white mt-1">
+              Curriculum, Syllabi &amp; Terminal Marks
+            </h4>
+            <p className="text-[11px] text-slate-300 mt-1 line-clamp-2 text-justify">
+              Coordinate scheme of work, practical lab sessions, and WAEC/BECE syllabus progression.
+            </p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveModule('students')}
+          className="relative rounded-2xl overflow-hidden border border-sky-500/35 bg-slate-900 shadow-lg group cursor-pointer h-48 sm:h-52"
+        >
+          <img
+            src={heroCampusImg}
+            alt="Campus Administration"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-transparent p-5 flex flex-col justify-end">
+            <span className="text-[11px] font-bold text-sky-300 uppercase tracking-wider">
+              Campus Facilities &amp; Enrolment
+            </span>
+            <h4 className="text-sm font-bold text-white mt-1">
+              Student Records &amp; Class Streams
+            </h4>
+            <p className="text-[11px] text-slate-300 mt-1 line-clamp-2 text-justify">
+              Stream division, biometric IDs, boarding house allocations, and guardian records.
+            </p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveModule('institute-management')}
+          className="relative rounded-2xl overflow-hidden border border-amber-500/35 bg-slate-900 shadow-lg group cursor-pointer h-48 sm:h-52"
+        >
+          <img
+            src={instituteGraduationImg}
+            alt="Graduation and Professional Certificates"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-transparent p-5 flex flex-col justify-end">
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+              Credentials &amp; Certification
+            </span>
+            <h4 className="text-sm font-bold text-white mt-1">
+              Digital Degrees, Diplomas &amp; QR Verification
+            </h4>
+            <p className="text-[11px] text-slate-300 mt-1 line-clamp-2 text-justify">
+              Issue tamper-proof certificates with QR employer verification registries.
+            </p>
           </div>
         </div>
       </div>
@@ -516,8 +596,8 @@ export const DashboardModule: React.FC = () => {
             <h3 className="font-bold text-base text-white">
               {school.name} Research &amp; Journal Repository
             </h3>
-            <p className="text-xs text-slate-300">
-              Original research and peer-reviewed journal articles published by faculty and student authors for the school community and the wider world.
+            <p className="text-xs text-slate-300 text-justify">
+              Peer-reviewed faculty publications, student research papers, and institutional monographs with registered DOIs.
             </p>
           </div>
           <button

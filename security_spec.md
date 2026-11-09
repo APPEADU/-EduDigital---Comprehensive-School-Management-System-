@@ -1,4 +1,4 @@
-# EduDigital SIS & Credential Charter — Firestore Security Specification (Phase 0 TDD)
+# InfoDigital & Credential Charter — Firestore Security Specification (Phase 0 TDD)
 
 ## 1. Core Data & Relational Invariants
 
