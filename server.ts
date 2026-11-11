@@ -18,7 +18,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+// AI Studio dev server runs on port 3000 (nginx listens on 8080 and proxies requests to 3000).
+// If process.env.PORT is 8080 or unset, use 3000 to avoid EADDRINUSE with nginx.
+const cliPortIdx = process.argv.indexOf('--port');
+const cliPort = cliPortIdx !== -1 && process.argv[cliPortIdx + 1] ? Number(process.argv[cliPortIdx + 1]) : null;
+const envPort = process.env.PORT ? Number(process.env.PORT) : null;
+const PORT = cliPort || (envPort && envPort !== 8080 ? envPort : 3000);
 
 app.use(express.json({ limit: '15mb' }));
 

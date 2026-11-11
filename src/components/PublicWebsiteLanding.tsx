@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSchool } from '../context/SchoolContext';
 import { LoginScreen } from './auth/LoginScreen';
 import { EmployerVerificationPortal } from './modules/EmployerVerificationPortal';
@@ -490,10 +490,41 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
     }
   }, []);
 
-  const [subView, setSubView] = useState<PublicSubView>(
-    initialVerifyParam && !embeddedInDashboard ? 'verify' : 'website'
+  const isOwnerUrlRequested = useMemo(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return (
+        p.get('portal') === 'owner' ||
+        p.get('mode') === 'owner' ||
+        p.get('owner') === 'true' ||
+        window.location.hash === '#owner'
+      );
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const [subView, setSubView] = useState<PublicSubView>(() => {
+    if (initialVerifyParam && !embeddedInDashboard) return 'verify';
+    if (isOwnerUrlRequested && !embeddedInDashboard) return 'login';
+    return 'website';
+  });
+  const [loginInitialMode, setLoginInitialMode] = useState<'staff' | 'student' | 'owner'>(
+    isOwnerUrlRequested ? 'owner' : 'staff'
   );
-  const [loginInitialMode, setLoginInitialMode] = useState<'staff' | 'student' | 'owner'>('staff');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) {
+        e.preventDefault();
+        setLoginInitialMode('owner');
+        setSubView('login');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+  const [secretClickCount, setSecretClickCount] = useState(0);
   const [verifySerialQuery, setVerifySerialQuery] = useState(initialVerifyParam);
   const [stakeholderTab, setStakeholderTab] = useState<StakeholderTab>('administrators');
   const [qualificationTier, setQualificationTier] = useState<QualificationTierKey>('level1');
@@ -872,15 +903,17 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                 <LogIn className="w-3.5 h-3.5 shrink-0" />
                 <span>Sign In</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleOpenPortalAction('owner')}
-                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/45 rounded-lg transition-all whitespace-nowrap shrink-0 cursor-pointer"
-                title="Platform Owner Portal"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                <span className="sr-only sm:not-sr-only">Owner</span>
-              </button>
+              {isPlatformAdmin && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenPortalAction('owner')}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/45 rounded-lg transition-all whitespace-nowrap shrink-0 cursor-pointer"
+                  title="Platform Owner Portal"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span className="sr-only sm:not-sr-only">Owner</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -1006,11 +1039,17 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                   </span>
                 </h1>
 
-                <p className="text-base sm:text-lg text-emerald-200 font-medium leading-relaxed max-w-[65ch]">
+                <p
+                  style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                  className="text-base sm:text-lg text-emerald-200 font-medium leading-relaxed max-w-[65ch] text-justify"
+                >
                   Transform the way your institution manages students, teachers, academics, finances and institutional operations with one integrated digital platform.
                 </p>
 
-                <p className="text-sm text-slate-300 leading-relaxed max-w-[65ch]">
+                <p
+                  style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                  className="text-sm text-slate-300 leading-relaxed max-w-[65ch] text-justify"
+                >
                   From student admission and enrolment to graduation, daily biometric attendance to
                   GES terminal reports, school fee billing to Mobile Money reconciliations, and BECE mock
                   preparation to QR-verifiable digital qualifications—everything runs in one secure,
@@ -2343,21 +2382,7 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                         <span>Register School / Institute</span>
                       </button>
                     </div>
-                  ) : (
-                    !embeddedInDashboard && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowWebsiteOwnerForm((prev) => !prev);
-                          setOwnerAuthError(null);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-emerald-500/50 text-xs font-semibold text-emerald-300 hover:text-white transition cursor-pointer whitespace-nowrap"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>Platform Owner Sign-In</span>
-                      </button>
-                    )
-                  )}
+                      ) : null}
                 </div>
 
                 {!embeddedInDashboard && !isPlatformAdmin && showWebsiteOwnerForm && (
@@ -2482,17 +2507,6 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
                   <span>Request Institutional Onboarding</span>
                   <ArrowRight className="w-4 h-4 text-emerald-400 shrink-0" />
                 </a>
-
-                {!embeddedInDashboard && !isPlatformAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPortalAction('owner')}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Owner Portal Sign-In</span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -2992,7 +3006,21 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
       <footer className="bg-[#050b1a] border-t border-indigo-500/25 px-4 sm:px-8 py-10 text-xs text-slate-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1.5">
-            <div className="text-sm font-bold bg-gradient-to-r from-amber-300 via-emerald-300 to-sky-300 bg-clip-text text-transparent">
+            <div
+              onClick={() => {
+                setSecretClickCount((prev) => {
+                  const next = prev + 1;
+                  if (next >= 3) {
+                    setLoginInitialMode('owner');
+                    setSubView('login');
+                    return 0;
+                  }
+                  return next;
+                });
+              }}
+              className="text-sm font-bold bg-gradient-to-r from-amber-300 via-emerald-300 to-sky-300 bg-clip-text text-transparent cursor-default select-none"
+              title="InfoDigital"
+            >
               InfoDigital · One Platform. Every Institution. Complete Management.
             </div>
             <p className="text-slate-300">
@@ -3032,13 +3060,15 @@ export const PublicWebsiteLanding: React.FC<PublicWebsiteLandingProps> = ({
               >
                 Research Journals
               </button>
-              <button
-                type="button"
-                onClick={() => handleOpenPortalAction('owner')}
-                className="text-slate-300 hover:text-emerald-300 font-semibold transition cursor-pointer whitespace-nowrap"
-              >
-                Platform Owner Sign-In
-              </button>
+              {isPlatformAdmin && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenPortalAction('owner')}
+                  className="text-slate-300 hover:text-emerald-300 font-semibold transition cursor-pointer whitespace-nowrap"
+                >
+                  Platform Owner Portal
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleOpenPortalAction('staff')}

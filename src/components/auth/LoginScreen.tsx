@@ -83,6 +83,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [resetTargetTab, setResetTargetTab] = useState<ResetRoleTab>('staff');
   const [resetSuccessBanner, setResetSuccessBanner] = useState<string | null>(null);
 
+  // Hidden Platform Owner mode triggers (URL param, keyboard shortcut, or footer triple-click)
+  const isOwnerModeRequested = useMemo(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return (
+        p.get('portal') === 'owner' ||
+        p.get('mode') === 'owner' ||
+        p.get('owner') === 'true' ||
+        window.location.hash === '#owner'
+      );
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const [showOwnerTab, setShowOwnerTab] = useState<boolean>(
+    initialMode === 'owner' || isOwnerModeRequested || isPlatformAdmin
+  );
+  const [secretClickCount, setSecretClickCount] = useState(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) {
+        e.preventDefault();
+        setShowOwnerTab(true);
+        setLoginMode('owner');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const schoolWhatsApp = hasSchools
     ? getSchoolWhatsAppContact(school)
     : { enabled: false, rawNumber: '', digits: '' };
@@ -92,6 +124,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   useEffect(() => {
     setLoginMode(initialMode);
+    if (initialMode === 'owner') {
+      setShowOwnerTab(true);
+    }
     setErrorMessage(null);
   }, [initialMode]);
 
@@ -524,27 +559,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                             <span>Register New Institution</span>
                           </button>
                         </div>
-                      ) : (
-                        <div className="pt-1.5 border-t border-slate-800 mt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowSchoolDropdown(false);
-                              setLoginMode('owner');
-                              setErrorMessage(null);
-                            }}
-                            className="w-full flex items-center justify-center gap-1.5 p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-amber-500/35 text-amber-300 font-semibold text-[11px] transition cursor-pointer whitespace-nowrap"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                            <span>Platform Owner? Sign In to Add School</span>
-                          </button>
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>
 
-                {isPlatformAdmin ? (
+                {isPlatformAdmin && (
                   <button
                     type="button"
                     onClick={() => setShowRegisterSchoolModal(true)}
@@ -553,23 +573,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Add School</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginMode('owner');
-                      setErrorMessage(null);
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                      loginMode === 'owner'
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 border-amber-400 text-white'
-                        : 'bg-slate-950/90 hover:bg-slate-800 border-amber-500/40 text-amber-300'
-                    }`}
-                    title="Platform Owner Sign-In"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                    <span className="hidden sm:inline">Owner Sign-In</span>
                   </button>
                 )}
               </div>
@@ -607,8 +610,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
             {/* Portal Authentication Card */}
             <div className="bg-slate-900/90 border border-indigo-500/30 rounded-2xl p-5 sm:p-6 text-xs space-y-5 shadow-2xl">
-              {/* Staff & Admin | Student & Candidate | Platform Owner Switcher */}
-              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950/90 border border-indigo-500/25 rounded-xl">
+              {/* Staff & Admin | Student Switcher (Platform Owner hidden from public view) */}
+              <div className={`grid ${showOwnerTab ? 'grid-cols-3' : 'grid-cols-2'} gap-1 p-1 bg-slate-950/90 border border-indigo-500/25 rounded-xl`}>
                 <button
                   type="button"
                   onClick={() => {
@@ -639,21 +642,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <GraduationCap className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">Student</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginMode('owner');
-                    setErrorMessage(null);
-                  }}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold transition cursor-pointer whitespace-nowrap ${
-                    loginMode === 'owner'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm'
-                      : 'text-amber-300/90 hover:text-amber-200'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Platform Owner</span>
-                </button>
+                {showOwnerTab && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode('owner');
+                      setErrorMessage(null);
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold transition cursor-pointer whitespace-nowrap ${
+                      loginMode === 'owner'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm'
+                        : 'text-amber-300/90 hover:text-amber-200'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Platform Owner</span>
+                  </button>
+                )}
               </div>
 
               {loginMode === 'owner' ? (
@@ -1197,7 +1202,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           )}
         </div>
 
-        <p className="text-center text-[11px] text-slate-500">
+        <p
+          onClick={() => {
+            setSecretClickCount((prev) => {
+              const next = prev + 1;
+              if (next >= 3) {
+                setShowOwnerTab(true);
+                setLoginMode('owner');
+                return 0;
+              }
+              return next;
+            });
+          }}
+          className="text-center text-[11px] text-slate-500 cursor-default select-none hover:text-slate-400 transition"
+          title="InfoDigital Data Protection Compliance"
+        >
           InfoDigital · Ghana Data Protection Act 2012 (Act 843) Compliant
         </p>
       </div>
